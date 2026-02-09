@@ -117,8 +117,7 @@ body {
   color: var(--primary);
   text-shadow: 0 0 30px rgba(0, 232, 143, 0.4);
   line-height: 1;
-  transition: all var(--transition);
-  animation: noteChange 0.2s ease-out;
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 
 .note-midi {
@@ -135,7 +134,11 @@ body {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 1px;
-  animation: fadeSlideIn 0.2s ease-out;
+  transition: opacity 0.25s ease, background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+.interval-indicator.hidden {
+  opacity: 0;
 }
 
 .interval-indicator.pos {
@@ -448,53 +451,69 @@ body {
   color: var(--primary);
 }
 
-/* Overlay Badges on Piano Keys */
-.key-overlays {
+/* Floating Overlay Badges */
+.overlay-layer {
   position: absolute;
-  top: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 10;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
+  z-index: 20;
+  overflow: visible;
 }
 
-.overlay-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.floating-badge {
+  position: absolute;
+  top: 10px;
+  transform: translateX(-50%);
   width: 22px;
   height: 22px;
   border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.6rem;
   font-weight: 800;
-  animation: badgePop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.overlay-badge.neg {
-  background: var(--neg);
   color: #fff;
-  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
+  transition: left 0.3s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.3s ease;
 }
 
-.overlay-badge.pos {
-  background: var(--pos);
-  color: #fff;
-  box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
-}
-
-.overlay-badge.zero {
-  background: var(--zero);
-  color: #fff;
-  box-shadow: 0 0 10px rgba(167, 139, 250, 0.5);
-}
-
-.black-key .overlay-badge {
+.floating-badge.on-black {
+  top: 4px;
   width: 18px;
   height: 18px;
   font-size: 0.5rem;
+}
+
+.floating-badge.neg {
+  background: var(--neg);
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.4);
+}
+
+.floating-badge.pos {
+  background: var(--pos);
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+}
+
+.floating-badge.zero {
+  background: var(--zero);
+  box-shadow: 0 0 8px rgba(167, 139, 250, 0.4);
+}
+
+/* Staff Notation */
+.staff-container {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  padding: 0.25rem 0;
+  width: 100%;
+}
+
+.staff-svg {
+  display: block;
+  width: 100%;
 }
 
 /* === Controls Toggle === */
@@ -628,33 +647,11 @@ input[type="range"]::-webkit-slider-runnable-track {
 @keyframes fadeSlideIn {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-2px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes noteChange {
-  from {
-    opacity: 0.5;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes badgePop {
-  from {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
   }
 }
 

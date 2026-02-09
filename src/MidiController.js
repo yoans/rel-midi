@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSynth } from './SynthEngine';
 import Keyboard from './components/Keyboard';
 import Controls from './components/Controls';
+import Staff from './components/Staff';
 
 const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const getNoteName = (midi) => `${NOTE_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
@@ -143,16 +144,15 @@ function MidiController() {
           <span className="octave-label">OCT</span>
         </button>
         <div className="note-display-center">
-          <div className="note-name" key={currentNote}>{getNoteName(currentNote)}</div>
+          <div className="note-name">{getNoteName(currentNote)}</div>
           <div className="note-midi">MIDI {currentNote}</div>
-          {lastInterval !== null && (
-            <div
-              key={`${lastInterval}-${Date.now()}`}
-              className={`interval-indicator ${lastInterval > 0 ? 'pos' : lastInterval < 0 ? 'neg' : 'zero'}`}
-            >
-              {lastInterval > 0 ? `+${lastInterval}` : lastInterval === 0 ? '●' : lastInterval}
-            </div>
-          )}
+          <div
+            className={`interval-indicator ${lastInterval === null ? 'hidden' : lastInterval > 0 ? 'pos' : lastInterval < 0 ? 'neg' : 'zero'}`}
+          >
+            {lastInterval !== null
+              ? (lastInterval > 0 ? `+${lastInterval}` : lastInterval === 0 ? '●' : lastInterval)
+              : '\u00A0'}
+          </div>
         </div>
         <button className="octave-btn" onClick={() => jumpOctave(1)} title="Octave Up">
           <span className="octave-label">OCT</span>
@@ -199,6 +199,9 @@ function MidiController() {
           );
         })}
       </div>
+
+      {/* Staff Notation */}
+      <Staff noteHistory={noteHistory} />
 
       {/* Piano */}
       <Keyboard
