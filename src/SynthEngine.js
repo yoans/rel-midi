@@ -5,6 +5,7 @@ export const useSynth = () => {
   const masterGain = useRef(null);
   const filterNode = useRef(null);
   const activeOscillators = useRef({});
+  const stopNoteRef = useRef(null);
 
   const [settings, setSettings] = useState({
     waveform: 'sawtooth',
@@ -24,13 +25,13 @@ export const useSynth = () => {
     
     // Master Gain
     masterGain.current = audioContext.current.createGain();
-    masterGain.current.gain.value = settings.masterVolume;
+    masterGain.current.gain.value = 0.5;
     
     // Filter
     filterNode.current = audioContext.current.createBiquadFilter();
     filterNode.current.type = 'lowpass';
-    filterNode.current.frequency.value = settings.cutoff;
-    filterNode.current.Q.value = settings.resonance;
+    filterNode.current.frequency.value = 2000;
+    filterNode.current.Q.value = 1;
 
     // Connect graph
     filterNode.current.connect(masterGain.current);
@@ -84,7 +85,7 @@ export const useSynth = () => {
     // Store reference to stop later
     if (activeOscillators.current[note]) {
         // If note is already playing, stop it first to avoid stuck notes or layering
-        stopNote(note);
+        stopNoteRef.current(note);
     }
     activeOscillators.current[note] = { osc, gain };
   }, [settings]);
@@ -111,6 +112,11 @@ export const useSynth = () => {
 
     delete activeOscillators.current[note];
   }, [settings]);
+
+  // Keep ref in sync so playNote can call stopNote without a circular dep
+  useEffect(() => {
+    stopNoteRef.current = stopNote;
+  }, [stopNote]);
 
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
