@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Controls = ({ settings, updateSetting, midiOutputs, selectedOutput, setSelectedOutput }) => {
+const Controls = ({ settings, updateSetting }) => {
 
     const waveforms = ['sine', 'square', 'sawtooth', 'triangle'];
 
@@ -87,21 +87,6 @@ const Controls = ({ settings, updateSetting, midiOutputs, selectedOutput, setSel
                         value={settings.masterVolume}
                         onChange={(e) => updateSetting('masterVolume', Number(e.target.value))}
                     />
-                </div>
-                <div className="control-item">
-                    <label>MIDI Out</label>
-                    <select
-                        value={selectedOutput || ''}
-                        onChange={(e) => setSelectedOutput(e.target.value)}
-                        className="synth-select"
-                    >
-                        <option value="">None</option>
-                        {midiOutputs.map(output => (
-                            <option key={output.id} value={output.id}>
-                                {output.name}
-                            </option>
-                        ))}
-                    </select>
                 </div>
             </div>
         </div>
