@@ -53,7 +53,6 @@ function MidiController() {
   const [keyVelocities, setKeyVelocities] = useState(DEFAULT_VELOCITIES);
   const [velocityMultiplier, setVelocityMultiplier] = useState(100);
   const [midiChannel, setMidiChannel] = useState(1);
-  const [chordWindow, setChordWindow] = useState(10);
   const [diagNote, setDiagNote] = useState(60);
   const [diagVolume, setDiagVolume] = useState(100);
   const [diagProgram, setDiagProgram] = useState(0);
@@ -64,12 +63,9 @@ function MidiController() {
   const midiAccessRef = useRef(null);
   const selectedOutputRef = useRef(null);
   const heldNotesRef = useRef(new Map());   // keyLabel → midiNote
-  const chordTimerRef = useRef(null);
-  const chordBaseRef = useRef(null);
   const keyVelocitiesRef = useRef(DEFAULT_VELOCITIES);
   const velocityMultiplierRef = useRef(100);
   const midiChannelRef = useRef(1);
-  const chordWindowRef = useRef(10);
 
   useEffect(() => { synthMutedRef.current = synthMuted; }, [synthMuted]);
   useEffect(() => { midiMutedRef.current = midiMuted; }, [midiMuted]);
@@ -77,7 +73,6 @@ function MidiController() {
   useEffect(() => { keyVelocitiesRef.current = keyVelocities; }, [keyVelocities]);
   useEffect(() => { velocityMultiplierRef.current = velocityMultiplier; }, [velocityMultiplier]);
   useEffect(() => { midiChannelRef.current = midiChannel; }, [midiChannel]);
-  useEffect(() => { chordWindowRef.current = chordWindow; }, [chordWindow]);
 
   useEffect(() => {
     currentNoteRef.current = currentNote;
@@ -252,7 +247,7 @@ function MidiController() {
     }
   }, [stopNote, getMidiOutput]);
 
-  // Keyboard handler — polyphonic with chord detection
+  // Keyboard handler — polyphonic, all 9 keys can sound simultaneously
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.repeat) return;
@@ -271,34 +266,12 @@ function MidiController() {
         setPressedKeys(prev => new Set([...prev, label]));
         setLastInterval(interval);
 
-        // Use chord base for near-simultaneous presses so all
-        // notes in a chord are relative to the same reference
-        const base = chordBaseRef.current !== null
-          ? chordBaseRef.current
-          : currentNoteRef.current;
-        if (chordBaseRef.current === null) {
-          chordBaseRef.current = currentNoteRef.current;
-        }
-
-        const newNote = Math.max(0, Math.min(127, base + interval));
+        const newNote = Math.max(0, Math.min(127, currentNoteRef.current + interval));
         heldNotesRef.current.set(label, newNote);
         setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
         setCurrentNote(newNote);
         setNoteHistory(prev => [...prev.slice(-999), { note: newNote, time: Date.now() }]);
         noteOn(newNote, label);
-
-        // After the chord window closes, set currentNote to the
-        // highest held note so the next interval starts from there
-        clearTimeout(chordTimerRef.current);
-        chordTimerRef.current = setTimeout(() => {
-          const held = Array.from(heldNotesRef.current.values());
-          if (held.length > 0) {
-            const highest = Math.max(...held);
-            setCurrentNote(highest);
-            currentNoteRef.current = highest;
-          }
-          chordBaseRef.current = null;
-        }, chordWindowRef.current);
       }
     };
 
@@ -328,7 +301,6 @@ function MidiController() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      clearTimeout(chordTimerRef.current);
     };
   }, [noteOn, noteOff]);
 
@@ -556,20 +528,6 @@ function MidiController() {
           title={`Master velocity: ${velocityMultiplier}% — scales all key velocities before sending`}
         />
         <span className="velocity-value">{velocityMultiplier}%</span>
-      </div>
-
-      {/* Chord Window */}
-      <div className="velocity-strip" title="Chord detection window — keys pressed within this time window are treated as a chord (all intervals relative to the same base note). 0 = no chords, higher = more forgiving timing.">
-        <label className="velocity-label">Chord</label>
-        <input
-          type="range"
-          className="velocity-master-slider"
-          min="0" max="100" step="1"
-          value={chordWindow}
-          onChange={(e) => setChordWindow(Number(e.target.value))}
-          title={`Chord window: ${chordWindow}ms — keys pressed within this window are grouped as a chord`}
-        />
-        <span className="velocity-value">{chordWindow}ms</span>
       </div>
 
       {/* Staff Notation */}
