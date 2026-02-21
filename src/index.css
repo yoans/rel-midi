@@ -164,6 +164,15 @@ body {
 }
 
 .midi-diagnostics {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease, margin 0.3s ease;
+  padding: 0 0.45rem;
+  margin-top: 0;
+}
+
+.midi-diagnostics.open {
+  max-height: 200px;
   margin-top: 0.45rem;
   padding: 0.45rem;
   border: 1px solid var(--border);
@@ -201,9 +210,9 @@ body {
   background: var(--primary-dim);
 }
 
-.diag-btn.panic {
-  color: var(--neg);
-  border-color: rgba(249, 115, 22, 0.35);
+.diag-toggle {
+  margin-top: 0.45rem;
+  font-size: 0.68rem;
 }
 
 .diag-label {
@@ -742,18 +751,76 @@ body {
 }
 
 /* Staff Notation */
+.staff-outer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .staff-container {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius) var(--radius) 0 0;
   overflow: hidden;
   padding: 0.25rem 0;
   width: 100%;
 }
 
+.staff-container.staff-expanded {
+  max-height: 420px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.staff-container.staff-expanded::-webkit-scrollbar {
+  width: 6px;
+}
+
+.staff-container.staff-expanded::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.staff-container.staff-expanded::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
 .staff-svg {
   display: block;
   width: 100%;
+}
+
+.staff-toolbar {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.35rem 0.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.staff-btn {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+}
+
+.staff-btn:hover {
+  color: var(--text);
+  border-color: var(--primary);
+  background: var(--primary-dim);
 }
 
 /* === Controls Toggle === */

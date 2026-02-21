@@ -44,14 +44,16 @@ function MidiController() {
   const [currentNote, setCurrentNote] = useState(60);
   const [activeNotes, setActiveNotes] = useState([]);
   const [noteHistory, setNoteHistory] = useState([{ note: 60, time: Date.now() }]);
-  const [pressedKey, setPressedKey] = useState(null);
+  const [pressedKeys, setPressedKeys] = useState(new Set());
   const [lastInterval, setLastInterval] = useState(null);
   const [showControls, setShowControls] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [synthMuted, setSynthMuted] = useState(false);
   const [midiMuted, setMidiMuted] = useState(false);
   const [keyVelocities, setKeyVelocities] = useState(DEFAULT_VELOCITIES);
   const [velocityMultiplier, setVelocityMultiplier] = useState(100);
   const [midiChannel, setMidiChannel] = useState(1);
+  const [chordWindow, setChordWindow] = useState(10);
   const [diagNote, setDiagNote] = useState(60);
   const [diagVolume, setDiagVolume] = useState(100);
   const [diagProgram, setDiagProgram] = useState(0);
@@ -61,10 +63,13 @@ function MidiController() {
   const midiMutedRef = useRef(false);
   const midiAccessRef = useRef(null);
   const selectedOutputRef = useRef(null);
-  const activeNoteRef = useRef(null);
+  const heldNotesRef = useRef(new Map());   // keyLabel → midiNote
+  const chordTimerRef = useRef(null);
+  const chordBaseRef = useRef(null);
   const keyVelocitiesRef = useRef(DEFAULT_VELOCITIES);
   const velocityMultiplierRef = useRef(100);
   const midiChannelRef = useRef(1);
+  const chordWindowRef = useRef(10);
 
   useEffect(() => { synthMutedRef.current = synthMuted; }, [synthMuted]);
   useEffect(() => { midiMutedRef.current = midiMuted; }, [midiMuted]);
@@ -72,6 +77,7 @@ function MidiController() {
   useEffect(() => { keyVelocitiesRef.current = keyVelocities; }, [keyVelocities]);
   useEffect(() => { velocityMultiplierRef.current = velocityMultiplier; }, [velocityMultiplier]);
   useEffect(() => { midiChannelRef.current = midiChannel; }, [midiChannel]);
+  useEffect(() => { chordWindowRef.current = chordWindow; }, [chordWindow]);
 
   useEffect(() => {
     currentNoteRef.current = currentNote;
@@ -176,28 +182,6 @@ function MidiController() {
     sendMidiToSelectedChannels(0xB0, 123, 0, 'All Notes Off (CC123)');
   }, [sendMidiToSelectedChannels]);
 
-  const handleDiagPanic = useCallback(() => {
-    const output = getMidiOutput();
-    if (!output || midiMutedRef.current) {
-      console.log(`[MIDI-DIAG] Skipped Panic: output=${!!output} midiMuted=${midiMutedRef.current}`);
-      return;
-    }
-
-    const channels = midiChannelRef.current === 0
-      ? Array.from({ length: 16 }, (_, i) => i)
-      : [midiChannelRef.current - 1];
-
-    channels.forEach((ch) => {
-      for (let note = 0; note <= 127; note++) {
-        output.send([0x80 + ch, note, 0]);
-      }
-      output.send([0xB0 + ch, 120, 0]);
-      output.send([0xB0 + ch, 123, 0]);
-    });
-
-    console.log(`[MIDI-DIAG] Panic sent on ${midiChannelRef.current === 0 ? 'ALL channels' : `ch${midiChannelRef.current}`} -> ${output.name}`);
-  }, [getMidiOutput]);
-
   const handleDiagSendVolume = useCallback(() => {
     const value = Math.max(0, Math.min(127, diagVolume));
     sendMidiToSelectedChannels(0xB0, 7, value, `CC7 Volume=${value}`);
@@ -225,91 +209,50 @@ function MidiController() {
   }, [diagProgram, getMidiOutput]);
 
   const noteOn = useCallback((note, keyLabel) => {
-    // Compute velocity: per-key velocity * global multiplier, clamped 1-127
     const perKey = keyLabel ? (keyVelocitiesRef.current[keyLabel] || 100) : 100;
     const velocity = Math.max(1, Math.min(127, Math.round(perKey * velocityMultiplierRef.current / 100)));
-    console.log(`[NOTE-ON] note=${note} key=${keyLabel} perKey=${perKey} mult=${velocityMultiplierRef.current} vel=${velocity}`);
+    console.log(`[NOTE-ON] note=${note} key=${keyLabel} vel=${velocity}`);
 
-    // Stop any currently sounding note first
-    if (activeNoteRef.current !== null) {
-      console.log(`[NOTE-ON] Stopping previous note ${activeNoteRef.current}`);
-      if (!synthMutedRef.current) stopNote(activeNoteRef.current);
-      const output = getMidiOutput();
-      if (output && !midiMutedRef.current) {
-        if (midiChannelRef.current === 0) {
-          console.log(`[MIDI-TX] Note-off (cleanup) ALL ch note=${activeNoteRef.current}`);
-          for (let ch = 0; ch < 16; ch++) {
-            output.send([0x80 + ch, activeNoteRef.current, 0]);
-          }
-        } else {
-          const ch = midiChannelRef.current - 1;
-          console.log(`[MIDI-TX] Note-off (cleanup) ch${ch + 1} note=${activeNoteRef.current}`);
-          output.send([0x80 + ch, activeNoteRef.current, 0]);
-        }
-      }
-    }
-
-    activeNoteRef.current = note;
-    setActiveNotes([note]);
-
-    // Synth sound
+    // Synth sound (polyphonic – no cleanup of previous notes)
     if (!synthMutedRef.current) {
       playNote(note, velocity);
-    } else {
-      console.log('[SYNTH] Muted, skipping playNote');
     }
 
     // MIDI output
     const output = getMidiOutput();
     if (output && !midiMutedRef.current) {
       if (midiChannelRef.current === 0) {
-        console.log(`[MIDI-TX] Note-on ALL ch note=${note} vel=${velocity} -> ${output.name}`);
         for (let ch = 0; ch < 16; ch++) {
           output.send([0x90 + ch, note, velocity]);
         }
       } else {
         const ch = midiChannelRef.current - 1;
-        console.log(`[MIDI-TX] Note-on ch${ch + 1} note=${note} vel=${velocity} -> ${output.name}`);
         output.send([0x90 + ch, note, velocity]);
       }
-    } else {
-      console.log(`[MIDI-TX] Skipped note-on: output=${!!output} midiMuted=${midiMutedRef.current}`);
     }
-  }, [playNote, stopNote, getMidiOutput]);
+  }, [playNote, getMidiOutput]);
 
   const noteOff = useCallback((note) => {
-    if (activeNoteRef.current !== note) {
-      console.log(`[NOTE-OFF] Ignored: active=${activeNoteRef.current} requested=${note}`);
-      return;
-    }
     console.log(`[NOTE-OFF] note=${note}`);
-    activeNoteRef.current = null;
-    setActiveNotes([]);
 
-    // Stop synth sound
     if (!synthMutedRef.current) {
       stopNote(note);
     }
 
-    // MIDI note-off
     const output = getMidiOutput();
     if (output && !midiMutedRef.current) {
       if (midiChannelRef.current === 0) {
-        console.log(`[MIDI-TX] Note-off ALL ch note=${note} -> ${output.name}`);
         for (let ch = 0; ch < 16; ch++) {
           output.send([0x80 + ch, note, 0]);
         }
       } else {
         const ch = midiChannelRef.current - 1;
-        console.log(`[MIDI-TX] Note-off ch${ch + 1} note=${note} -> ${output.name}`);
         output.send([0x80 + ch, note, 0]);
       }
-    } else {
-      console.log(`[MIDI-TX] Skipped note-off: output=${!!output} midiMuted=${midiMutedRef.current}`);
     }
   }, [stopNote, getMidiOutput]);
 
-  // Keyboard handler
+  // Keyboard handler — polyphonic with chord detection
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.repeat) return;
@@ -317,24 +260,66 @@ function MidiController() {
       if (interval !== undefined) {
         e.preventDefault();
         const label = e.key === ' ' ? 'SPACE' : e.key.toUpperCase();
-        setPressedKey(label);
+
+        // If this key already holds a note, release it first
+        const prevNote = heldNotesRef.current.get(label);
+        if (prevNote !== undefined) {
+          noteOff(prevNote);
+          heldNotesRef.current.delete(label);
+        }
+
+        setPressedKeys(prev => new Set([...prev, label]));
         setLastInterval(interval);
 
-        const newNote = Math.max(0, Math.min(127, currentNoteRef.current + interval));
+        // Use chord base for near-simultaneous presses so all
+        // notes in a chord are relative to the same reference
+        const base = chordBaseRef.current !== null
+          ? chordBaseRef.current
+          : currentNoteRef.current;
+        if (chordBaseRef.current === null) {
+          chordBaseRef.current = currentNoteRef.current;
+        }
+
+        const newNote = Math.max(0, Math.min(127, base + interval));
+        heldNotesRef.current.set(label, newNote);
+        setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
         setCurrentNote(newNote);
-        setNoteHistory(prev => [...prev.slice(-15), { note: newNote, time: Date.now() }]);
+        setNoteHistory(prev => [...prev.slice(-999), { note: newNote, time: Date.now() }]);
         noteOn(newNote, label);
+
+        // After the chord window closes, set currentNote to the
+        // highest held note so the next interval starts from there
+        clearTimeout(chordTimerRef.current);
+        chordTimerRef.current = setTimeout(() => {
+          const held = Array.from(heldNotesRef.current.values());
+          if (held.length > 0) {
+            const highest = Math.max(...held);
+            setCurrentNote(highest);
+            currentNoteRef.current = highest;
+          }
+          chordBaseRef.current = null;
+        }, chordWindowRef.current);
       }
     };
 
     const handleKeyUp = (e) => {
       const interval = KEY_MAP[e.key.toLowerCase()];
       if (interval !== undefined) {
-        setPressedKey(null);
-        // Stop the note on key release
-        if (activeNoteRef.current !== null) {
-          noteOff(activeNoteRef.current);
+        const label = e.key === ' ' ? 'SPACE' : e.key.toUpperCase();
+
+        const heldNote = heldNotesRef.current.get(label);
+        if (heldNote !== undefined) {
+          noteOff(heldNote);
+          heldNotesRef.current.delete(label);
         }
+
+        setPressedKeys(prev => {
+          const next = new Set(prev);
+          next.delete(label);
+          return next;
+        });
+
+        setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
       }
     };
 
@@ -343,26 +328,40 @@ function MidiController() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      clearTimeout(chordTimerRef.current);
     };
   }, [noteOn, noteOff]);
 
   const handleVisualKeyClick = (note) => {
+    // Release any previous mouse-held note
+    const prevMouse = heldNotesRef.current.get('__mouse__');
+    if (prevMouse !== undefined) {
+      noteOff(prevMouse);
+      heldNotesRef.current.delete('__mouse__');
+    }
     const interval = note - currentNote;
     setLastInterval(interval);
     setCurrentNote(note);
-    setNoteHistory(prev => [...prev.slice(-15), { note, time: Date.now() }]);
+    heldNotesRef.current.set('__mouse__', note);
+    setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
+    setNoteHistory(prev => [...prev.slice(-999), { note, time: Date.now() }]);
     noteOn(note, null);
   };
 
   const handleVisualKeyRelease = (note) => {
+    const mouseNote = heldNotesRef.current.get('__mouse__');
+    if (mouseNote === note) {
+      heldNotesRef.current.delete('__mouse__');
+    }
     noteOff(note);
+    setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
   };
 
   const jumpOctave = (direction) => {
     const newNote = Math.max(0, Math.min(127, currentNote + direction * 12));
     setCurrentNote(newNote);
     setLastInterval(direction * 12);
-    setNoteHistory(prev => [...prev.slice(-15), { note: newNote, time: Date.now() }]);
+    setNoteHistory(prev => [...prev.slice(-999), { note: newNote, time: Date.now() }]);
     noteOn(newNote, null);
     // Auto-release octave jump after a short hold
     setTimeout(() => noteOff(newNote), 400);
@@ -394,6 +393,7 @@ function MidiController() {
             className="midi-select"
             value={selectedOutput || ''}
             onChange={(e) => setSelectedOutput(e.target.value || null)}
+            title="Select the MIDI output device to send notes to"
           >
             <option value="">No MIDI Out</option>
             {midiOutputs.map(output => (
@@ -404,6 +404,7 @@ function MidiController() {
             className="midi-select midi-ch-select"
             value={midiChannel}
             onChange={(e) => setMidiChannel(Number(e.target.value))}
+            title="MIDI channel to send on. 'ALL' sends to all 16 channels simultaneously"
           >
             <option value={0}>ALL</option>
             {Array.from({ length: 16 }, (_, i) => (
@@ -411,14 +412,22 @@ function MidiController() {
             ))}
           </select>
         </div>
-        <div className="midi-diagnostics">
+        <button
+          className="controls-toggle diag-toggle"
+          onClick={() => setShowDiagnostics(!showDiagnostics)}
+          title="MIDI diagnostic tools for testing output, sending control messages, and troubleshooting"
+        >
+          {showDiagnostics ? '▾ Hide MIDI Diagnostics' : '▸ MIDI Diagnostics'}
+        </button>
+        <div className={`midi-diagnostics ${showDiagnostics ? 'open' : ''}`}>
           <div className="diag-row">
-            <button className="diag-btn" onClick={handleDiagTestNote}>Test Note</button>
-            <button className="diag-btn" onClick={handleDiagAllNotesOff}>All Notes Off</button>
-            <button className="diag-btn panic" onClick={handleDiagPanic}>Panic</button>
+            <button className="diag-btn" onClick={handleDiagTestNote}
+              title="Send a short test note to verify MIDI output is working">Test Note</button>
+            <button className="diag-btn" onClick={handleDiagAllNotesOff}
+              title="Send CC123 (All Notes Off) to silence any stuck or hanging notes">All Notes Off</button>
           </div>
           <div className="diag-row diag-controls">
-            <label className="diag-label">Note</label>
+            <label className="diag-label" title="MIDI note number for the test note (0 = C-1, 60 = C4, 127 = G9)">Note</label>
             <input
               className="diag-num"
               type="number"
@@ -426,8 +435,9 @@ function MidiController() {
               max="127"
               value={diagNote}
               onChange={(e) => setDiagNote(Number(e.target.value))}
+              title="MIDI note number (0-127) for test note"
             />
-            <label className="diag-label">CC7</label>
+            <label className="diag-label" title="Control Change 7 — standard MIDI volume control">CC7</label>
             <input
               className="diag-num"
               type="number"
@@ -435,9 +445,11 @@ function MidiController() {
               max="127"
               value={diagVolume}
               onChange={(e) => setDiagVolume(Number(e.target.value))}
+              title="MIDI volume level (0-127)"
             />
-            <button className="diag-btn" onClick={handleDiagSendVolume}>Send Vol</button>
-            <label className="diag-label">Prog</label>
+            <button className="diag-btn" onClick={handleDiagSendVolume}
+              title="Send a CC7 (Channel Volume) message to set the volume on the selected output">Send Vol</button>
+            <label className="diag-label" title="Program Change — switch the instrument/patch on the receiving device">Prog</label>
             <input
               className="diag-num"
               type="number"
@@ -445,15 +457,17 @@ function MidiController() {
               max="127"
               value={diagProgram}
               onChange={(e) => setDiagProgram(Number(e.target.value))}
+              title="MIDI program/patch number (0-127)"
             />
-            <button className="diag-btn" onClick={handleDiagSendProgram}>Send Prog</button>
+            <button className="diag-btn" onClick={handleDiagSendProgram}
+              title="Send a Program Change message to switch the instrument/patch on the receiving device">Send Prog</button>
           </div>
         </div>
       </header>
 
       {/* Note Display */}
       <div className="note-display">
-        <button className="octave-btn" onClick={() => jumpOctave(-1)} title="Octave Down">
+        <button className="octave-btn" onClick={() => jumpOctave(-1)} title="Jump down one octave (12 semitones) and play the note">
           <span className="octave-arrow">◂</span>
           <span className="octave-label">OCT</span>
         </button>
@@ -468,7 +482,7 @@ function MidiController() {
               : '\u00A0'}
           </div>
         </div>
-        <button className="octave-btn" onClick={() => jumpOctave(1)} title="Octave Up">
+        <button className="octave-btn" onClick={() => jumpOctave(1)} title="Jump up one octave (12 semitones) and play the note">
           <span className="octave-label">OCT</span>
           <span className="octave-arrow">▸</span>
         </button>
@@ -503,7 +517,7 @@ function MidiController() {
                 'key-btn',
                 isSpace ? 'space' : '',
                 interval < 0 ? 'neg' : interval > 0 ? 'pos' : 'zero',
-                pressedKey === key ? 'pressed' : '',
+                pressedKeys.has(key) ? 'pressed' : '',
               ].filter(Boolean).join(' ')}
               style={{ opacity }}
             >
@@ -523,7 +537,7 @@ function MidiController() {
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
-                title={`Velocity: ${vel}`}
+                title={`Per-key velocity for ${key}: ${vel}/127 — controls how hard this key strikes`}
               />
             </div>
           );
@@ -531,7 +545,7 @@ function MidiController() {
       </div>
 
       {/* Velocity Multiplier */}
-      <div className="velocity-strip">
+      <div className="velocity-strip" title="Master velocity multiplier — scales all key velocities. 100% = normal, 200% = maximum loudness">
         <label className="velocity-label">Velocity</label>
         <input
           type="range"
@@ -539,8 +553,23 @@ function MidiController() {
           min="1" max="200" step="1"
           value={velocityMultiplier}
           onChange={(e) => setVelocityMultiplier(Number(e.target.value))}
+          title={`Master velocity: ${velocityMultiplier}% — scales all key velocities before sending`}
         />
         <span className="velocity-value">{velocityMultiplier}%</span>
+      </div>
+
+      {/* Chord Window */}
+      <div className="velocity-strip" title="Chord detection window — keys pressed within this time window are treated as a chord (all intervals relative to the same base note). 0 = no chords, higher = more forgiving timing.">
+        <label className="velocity-label">Chord</label>
+        <input
+          type="range"
+          className="velocity-master-slider"
+          min="0" max="100" step="1"
+          value={chordWindow}
+          onChange={(e) => setChordWindow(Number(e.target.value))}
+          title={`Chord window: ${chordWindow}ms — keys pressed within this window are grouped as a chord`}
+        />
+        <span className="velocity-value">{chordWindow}ms</span>
       </div>
 
       {/* Staff Notation */}
