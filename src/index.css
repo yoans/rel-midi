@@ -164,13 +164,9 @@ body {
 
 /* === MIDI Config Panel === */
 .midi-config-toggle {
-  margin-top: 0;
   background: var(--secondary-dim);
   border-color: rgba(59, 130, 246, 0.3);
   color: var(--secondary);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 1.5px;
 }
 
 .midi-config-toggle:hover {
@@ -192,6 +188,24 @@ body {
 
 .midi-config-wrapper > * {
   overflow: hidden;
+}
+
+/* Rapid Learn button */
+.rapid-learn-btn {
+  background: var(--primary-dim) !important;
+  border-color: rgba(0, 232, 143, 0.3) !important;
+  color: var(--primary) !important;
+}
+
+.rapid-learn-btn:hover:not(:disabled) {
+  border-color: var(--primary) !important;
+  background: rgba(0, 232, 143, 0.25) !important;
+  color: var(--text) !important;
+}
+
+.rapid-learn-btn.active {
+  border-color: var(--primary) !important;
+  animation: pulse-learn 1.2s ease-in-out infinite;
 }
 
 .midi-config-panel {
@@ -1167,7 +1181,61 @@ body {
   background: var(--primary-dim);
 }
 
-/* === Controls Toggle === */
+/* === Collapsible Sections === */
+.collapsible-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.collapsible-header {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: left;
+}
+
+.collapsible-header:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.collapsible-body.open ~ .collapsible-header,
+.collapsible-section:has(.collapsible-body.open) .collapsible-header {
+  border-bottom-color: var(--border);
+}
+
+.collapsible-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.collapsible-body.open {
+  grid-template-rows: 1fr;
+}
+
+.collapsible-body > * {
+  overflow: hidden;
+}
+
+/* Keep midi-config-toggle specific overrides */
+.collapsible-section .midi-config-toggle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+/* === Controls Toggle (legacy compat) === */
 .controls-toggle {
   width: 100%;
   padding: 0.6rem;
@@ -1188,7 +1256,7 @@ body {
   border-color: #444;
 }
 
-/* === Controls Wrapper (collapsible) === */
+/* === Controls Wrapper (collapsible - used by old refs) === */
 .controls-wrapper {
   display: grid;
   grid-template-rows: 0fr;

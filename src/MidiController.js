@@ -91,6 +91,8 @@ function MidiController() {
   const [lastMidiIn, setLastMidiIn] = useState(null); // { note, vel, name }
   const [showMidiConfig, setShowMidiConfig] = useState(false);
   const [usePadVelocity, setUsePadVelocity] = useState(true);
+  const [rapidLearnActive, setRapidLearnActive] = useState(false);
+  const rapidLearnActiveRef = useRef(false);
 
   const currentNoteRef = useRef(60);
   const synthMutedRef = useRef(false);
@@ -116,6 +118,7 @@ function MidiController() {
   useEffect(() => { padMapRef.current = padMap; }, [padMap]);
   useEffect(() => { midiLearnTargetRef.current = midiLearnTarget; }, [midiLearnTarget]);
   useEffect(() => { usePadVelocityRef.current = usePadVelocity; }, [usePadVelocity]);
+  useEffect(() => { rapidLearnActiveRef.current = rapidLearnActive; }, [rapidLearnActive]);
 
   useEffect(() => {
     currentNoteRef.current = currentNote;
@@ -278,7 +281,20 @@ function MidiController() {
         next[note] = { interval: targetInterval, label: `Note ${note} (${getNoteName(note)})` };
         return next;
       });
-      setMidiLearnTarget(null);
+
+      // Rapid learn: auto-advance to next action
+      if (rapidLearnActiveRef.current) {
+        const idx = ASSIGNABLE_ACTIONS.findIndex(a => a.value === targetInterval);
+        if (idx >= 0 && idx < ASSIGNABLE_ACTIONS.length - 1) {
+          setMidiLearnTarget(ASSIGNABLE_ACTIONS[idx + 1].value);
+        } else {
+          // Done — reached the end
+          setMidiLearnTarget(null);
+          setRapidLearnActive(false);
+        }
+      } else {
+        setMidiLearnTarget(null);
+      }
       return;
     }
 
@@ -470,13 +486,14 @@ function MidiController() {
       </header>
 
       {/* MIDI Config Panel */}
-      <button
-        className="controls-toggle midi-config-toggle"
-        onClick={() => setShowMidiConfig(!showMidiConfig)}
-      >
-        {showMidiConfig ? '▾ Hide MIDI Setup' : '▸ MIDI Setup'}
-      </button>
-      <div className={`midi-config-wrapper ${showMidiConfig ? 'open' : ''}`}>
+      <div className="collapsible-section">
+        <button
+          className="collapsible-header midi-config-toggle"
+          onClick={() => setShowMidiConfig(!showMidiConfig)}
+        >
+          {showMidiConfig ? '▾' : '▸'} MIDI Setup
+        </button>
+        <div className={`collapsible-body ${showMidiConfig ? 'open' : ''}`}>
         <div className="midi-config-panel">
           {/* I/O Selection */}
           <div className="midi-io-section">
@@ -580,6 +597,20 @@ function MidiController() {
             </div>
             <div className="pad-map-actions">
               <button
+                className={`pad-map-action-btn rapid-learn-btn ${rapidLearnActive ? 'active' : ''}`}
+                onClick={() => {
+                  if (rapidLearnActive) {
+                    setRapidLearnActive(false);
+                    setMidiLearnTarget(null);
+                  } else {
+                    setPadMap({});
+                    setRapidLearnActive(true);
+                    setMidiLearnTarget(ASSIGNABLE_ACTIONS[0].value);
+                  }
+                }}
+                title="Clear all mappings and learn each interval in sequence — just hit pads left to right"
+              >{rapidLearnActive ? '⏹ Stop Rapid Learn' : '⚡ Rapid Learn'}</button>
+              <button
                 className="pad-map-action-btn"
                 onClick={() => setPadMap(DEFAULT_PAD_MAP)}
                 title="Reset all pad mappings to MPD218 defaults (Bank A)"
@@ -591,13 +622,14 @@ function MidiController() {
               >Clear all</button>
               <button
                 className="pad-map-action-btn"
-                onClick={() => setMidiLearnTarget(null)}
+                onClick={() => { setMidiLearnTarget(null); setRapidLearnActive(false); }}
                 disabled={midiLearnTarget === null}
               >Cancel Learn</button>
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </div>  {/* end MIDI Config collapsible */}
 
       {/* Note Display */}
       <div className="note-display">
@@ -755,17 +787,19 @@ function MidiController() {
       />
 
       {/* Collapsible Controls */}
-      <button
-        className="controls-toggle"
-        onClick={() => setShowControls(!showControls)}
-      >
-        {showControls ? '▾ Hide Synth Controls' : '▸ Synth Controls'}
-      </button>
-      <div className={`controls-wrapper ${showControls ? 'open' : ''}`}>
-        <Controls
-          settings={settings}
-          updateSetting={updateSetting}
-        />
+      <div className="collapsible-section">
+        <button
+          className="collapsible-header"
+          onClick={() => setShowControls(!showControls)}
+        >
+          {showControls ? '▾' : '▸'} Synth Controls
+        </button>
+        <div className={`collapsible-body ${showControls ? 'open' : ''}`}>
+          <Controls
+            settings={settings}
+            updateSetting={updateSetting}
+          />
+        </div>
       </div>
     </div>
   );
