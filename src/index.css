@@ -938,8 +938,8 @@ body {
 
 /* === Controls Panel === */
 .controls-panel {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
   padding: 1rem;
   background: var(--bg-surface);
@@ -965,8 +965,8 @@ body {
 
 .control-item {
   display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .control-item label {
@@ -974,12 +974,23 @@ body {
   color: var(--text-dim);
   font-weight: 600;
   letter-spacing: 0.5px;
+  min-width: 62px;
+  white-space: nowrap;
+}
+
+.control-item-value {
+  font-size: 0.65rem;
+  color: var(--text);
+  font-weight: 700;
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .sliders-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 /* Range Inputs */
@@ -987,17 +998,19 @@ input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 4px;
+  height: 6px;
   background: var(--border);
-  border-radius: 2px;
+  border-radius: 3px;
   outline: none;
   transition: background var(--transition);
+  flex: 1;
+  min-width: 0;
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  height: 14px;
-  width: 14px;
+  height: 16px;
+  width: 16px;
   border-radius: 50%;
   background: var(--primary);
   cursor: pointer;
@@ -1011,9 +1024,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 6px;
   background: var(--border);
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 .synth-select {

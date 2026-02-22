@@ -24,36 +24,40 @@ const Controls = ({ settings, updateSetting }) => {
                 <h3>Envelope</h3>
                 <div className="sliders-grid">
                     <div className="control-item">
-                        <label>A</label>
+                        <label>Attack</label>
                         <input
                             type="range" min="0" max="2" step="0.01"
                             value={settings.attack}
                             onChange={(e) => updateSetting('attack', Number(e.target.value))}
                         />
+                        <span className="control-item-value">{settings.attack.toFixed(2)}</span>
                     </div>
                     <div className="control-item">
-                        <label>D</label>
+                        <label>Decay</label>
                         <input
                             type="range" min="0" max="2" step="0.01"
                             value={settings.decay}
                             onChange={(e) => updateSetting('decay', Number(e.target.value))}
                         />
+                        <span className="control-item-value">{settings.decay.toFixed(2)}</span>
                     </div>
                     <div className="control-item">
-                        <label>S</label>
+                        <label>Sustain</label>
                         <input
                             type="range" min="0" max="1" step="0.01"
                             value={settings.sustain}
                             onChange={(e) => updateSetting('sustain', Number(e.target.value))}
                         />
+                        <span className="control-item-value">{settings.sustain.toFixed(2)}</span>
                     </div>
                     <div className="control-item">
-                        <label>R</label>
+                        <label>Release</label>
                         <input
                             type="range" min="0" max="5" step="0.01"
                             value={settings.release}
                             onChange={(e) => updateSetting('release', Number(e.target.value))}
                         />
+                        <span className="control-item-value">{settings.release.toFixed(2)}</span>
                     </div>
                 </div>
             </div>
@@ -67,6 +71,7 @@ const Controls = ({ settings, updateSetting }) => {
                         value={settings.cutoff}
                         onChange={(e) => updateSetting('cutoff', Number(e.target.value))}
                     />
+                    <span className="control-item-value">{settings.cutoff}</span>
                 </div>
                 <div className="control-item">
                     <label>Resonance</label>
@@ -75,6 +80,7 @@ const Controls = ({ settings, updateSetting }) => {
                         value={settings.resonance}
                         onChange={(e) => updateSetting('resonance', Number(e.target.value))}
                     />
+                    <span className="control-item-value">{settings.resonance.toFixed(1)}</span>
                 </div>
             </div>
 
@@ -87,6 +93,7 @@ const Controls = ({ settings, updateSetting }) => {
                         value={settings.masterVolume}
                         onChange={(e) => updateSetting('masterVolume', Number(e.target.value))}
                     />
+                    <span className="control-item-value">{settings.masterVolume.toFixed(2)}</span>
                 </div>
             </div>
         </div>
