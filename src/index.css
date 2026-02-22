@@ -1226,6 +1226,7 @@ body {
 
 .collapsible-body > * {
   overflow: hidden;
+  min-height: 0;
 }
 
 /* Keep midi-config-toggle specific overrides */
