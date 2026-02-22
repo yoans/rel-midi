@@ -31,15 +31,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg-dark);
   color: var(--text);
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .App {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   min-height: 100vh;
+  padding: 1rem 0;
   background:
     radial-gradient(ellipse at 20% 50%, rgba(0, 232, 143, 0.04) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 50%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
@@ -60,8 +62,6 @@ body {
   box-shadow:
     0 0 80px rgba(0, 232, 143, 0.05),
     0 4px 32px rgba(0, 0, 0, 0.5);
-  max-height: 98vh;
-  overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -1337,10 +1337,15 @@ input[type="range"]::-webkit-slider-runnable-track {
 
 /* === Responsive === */
 @media (max-width: 700px) {
+  .App {
+    padding: 0.5rem 0;
+  }
+
   .synth-container {
     padding: 1rem;
     gap: 0.75rem;
     border-radius: 12px;
+    width: 100%;
   }
 
   .synth-header h1 {
