@@ -195,6 +195,67 @@ function MidiController() {
     console.log('[MIDI] Selected output changed:', output ? `${output.name} (${output.id})` : selectedOutput);
   }, [selectedOutput, midiOutputs]);
 
+  // Helper to get the cached MIDI output
+  const getMidiOutput = useCallback(() => {
+    if (!midiAccessRef.current) {
+      console.log('[MIDI] getMidiOutput: no access object');
+      return null;
+    }
+    if (!selectedOutputRef.current) {
+      console.log('[MIDI] getMidiOutput: no output selected');
+      return null;
+    }
+    const output = midiAccessRef.current.outputs.get(selectedOutputRef.current);
+    if (!output) {
+      console.log('[MIDI] getMidiOutput: output not found for id:', selectedOutputRef.current);
+    }
+    return output || null;
+  }, []);
+
+  const noteOn = useCallback((note, keyLabel) => {
+    const perKey = keyLabel ? (keyVelocitiesRef.current[keyLabel] || 100) : 100;
+    const velocity = Math.max(1, Math.min(127, Math.round(perKey * velocityMultiplierRef.current / 100)));
+    console.log(`[NOTE-ON] note=${note} key=${keyLabel} vel=${velocity}`);
+
+    // Synth sound (polyphonic – no cleanup of previous notes)
+    if (!synthMutedRef.current) {
+      playNote(note, velocity);
+    }
+
+    // MIDI output
+    const output = getMidiOutput();
+    if (output && !midiMutedRef.current) {
+      if (midiChannelRef.current === 0) {
+        for (let ch = 0; ch < 16; ch++) {
+          output.send([0x90 + ch, note, velocity]);
+        }
+      } else {
+        const ch = midiChannelRef.current - 1;
+        output.send([0x90 + ch, note, velocity]);
+      }
+    }
+  }, [playNote, getMidiOutput]);
+
+  const noteOff = useCallback((note) => {
+    console.log(`[NOTE-OFF] note=${note}`);
+
+    if (!synthMutedRef.current) {
+      stopNote(note);
+    }
+
+    const output = getMidiOutput();
+    if (output && !midiMutedRef.current) {
+      if (midiChannelRef.current === 0) {
+        for (let ch = 0; ch < 16; ch++) {
+          output.send([0x80 + ch, note, 0]);
+        }
+      } else {
+        const ch = midiChannelRef.current - 1;
+        output.send([0x80 + ch, note, 0]);
+      }
+    }
+  }, [stopNote, getMidiOutput]);
+
   // MIDI Input listener — handles pad presses through the mapping system
   const handleMidiInput = useCallback((note, velocity, isNoteOn) => {
     const mapping = padMapRef.current[note];
@@ -292,67 +353,6 @@ function MidiController() {
       input.onmidimessage = null;
     };
   }, [selectedInput, handleMidiInput]);
-
-  // Helper to get the cached MIDI output
-  const getMidiOutput = useCallback(() => {
-    if (!midiAccessRef.current) {
-      console.log('[MIDI] getMidiOutput: no access object');
-      return null;
-    }
-    if (!selectedOutputRef.current) {
-      console.log('[MIDI] getMidiOutput: no output selected');
-      return null;
-    }
-    const output = midiAccessRef.current.outputs.get(selectedOutputRef.current);
-    if (!output) {
-      console.log('[MIDI] getMidiOutput: output not found for id:', selectedOutputRef.current);
-    }
-    return output || null;
-  }, []);
-
-  const noteOn = useCallback((note, keyLabel) => {
-    const perKey = keyLabel ? (keyVelocitiesRef.current[keyLabel] || 100) : 100;
-    const velocity = Math.max(1, Math.min(127, Math.round(perKey * velocityMultiplierRef.current / 100)));
-    console.log(`[NOTE-ON] note=${note} key=${keyLabel} vel=${velocity}`);
-
-    // Synth sound (polyphonic – no cleanup of previous notes)
-    if (!synthMutedRef.current) {
-      playNote(note, velocity);
-    }
-
-    // MIDI output
-    const output = getMidiOutput();
-    if (output && !midiMutedRef.current) {
-      if (midiChannelRef.current === 0) {
-        for (let ch = 0; ch < 16; ch++) {
-          output.send([0x90 + ch, note, velocity]);
-        }
-      } else {
-        const ch = midiChannelRef.current - 1;
-        output.send([0x90 + ch, note, velocity]);
-      }
-    }
-  }, [playNote, getMidiOutput]);
-
-  const noteOff = useCallback((note) => {
-    console.log(`[NOTE-OFF] note=${note}`);
-
-    if (!synthMutedRef.current) {
-      stopNote(note);
-    }
-
-    const output = getMidiOutput();
-    if (output && !midiMutedRef.current) {
-      if (midiChannelRef.current === 0) {
-        for (let ch = 0; ch < 16; ch++) {
-          output.send([0x80 + ch, note, 0]);
-        }
-      } else {
-        const ch = midiChannelRef.current - 1;
-        output.send([0x80 + ch, note, 0]);
-      }
-    }
-  }, [stopNote, getMidiOutput]);
 
   // Keyboard handler — polyphonic, all 9 keys can sound simultaneously
   useEffect(() => {
