@@ -28,6 +28,37 @@ const DEFAULT_KEY_LABELS = [
 const DEFAULT_VELOCITIES = {};
 DEFAULT_KEY_LABELS.forEach(k => { DEFAULT_VELOCITIES[k.key] = 100; });
 
+// Default pad mapping — MPD218 Bank A pads (notes 36-44) → 9 intervals
+const DEFAULT_PAD_MAP = {
+  36: { interval: -4, label: 'Pad 1' },
+  37: { interval: -3, label: 'Pad 2' },
+  38: { interval: -2, label: 'Pad 3' },
+  39: { interval: -1, label: 'Pad 4' },
+  40: { interval: 0,  label: 'Pad 5' },
+  41: { interval: +1, label: 'Pad 6' },
+  42: { interval: +2, label: 'Pad 7' },
+  43: { interval: +3, label: 'Pad 8' },
+  44: { interval: +4, label: 'Pad 9' },
+  45: { interval: -12, label: 'Pad 10 (Oct-)' },
+  46: { interval: +12, label: 'Pad 11 (Oct+)' },
+};
+
+const ASSIGNABLE_ACTIONS = [
+  { value: -12, label: 'Oct −' },
+  { value: -4, label: '−4' },
+  { value: -3, label: '−3' },
+  { value: -2, label: '−2' },
+  { value: -1, label: '−1' },
+  { value: 0,  label: 'RPT' },
+  { value: +1, label: '+1' },
+  { value: +2, label: '+2' },
+  { value: +3, label: '+3' },
+  { value: +4, label: '+4' },
+  { value: +5, label: '+5' },
+  { value: +7, label: '+7' },
+  { value: +12, label: 'Oct +' },
+];
+
 const pickPreferredOutput = (outputs) => {
   if (!outputs.length) return null;
   const portOne = outputs.find((o) => /^1\s*[-:]/.test(o.name || ''));
@@ -53,6 +84,13 @@ function MidiController() {
   const [velocityMultiplier, setVelocityMultiplier] = useState(100);
   const [midiChannel, setMidiChannel] = useState(1);
   const [velocityPopup, setVelocityPopup] = useState(null); // key label or null
+  const [midiInputs, setMidiInputs] = useState([]);
+  const [selectedInput, setSelectedInput] = useState(null);
+  const [padMap, setPadMap] = useState(DEFAULT_PAD_MAP);
+  const [midiLearnTarget, setMidiLearnTarget] = useState(null); // interval value being learned
+  const [lastMidiIn, setLastMidiIn] = useState(null); // { note, vel, name }
+  const [showMidiConfig, setShowMidiConfig] = useState(false);
+  const [usePadVelocity, setUsePadVelocity] = useState(true);
 
   const currentNoteRef = useRef(60);
   const synthMutedRef = useRef(false);
@@ -63,6 +101,10 @@ function MidiController() {
   const keyVelocitiesRef = useRef(DEFAULT_VELOCITIES);
   const velocityMultiplierRef = useRef(100);
   const midiChannelRef = useRef(1);
+  const selectedInputRef = useRef(null);
+  const padMapRef = useRef(DEFAULT_PAD_MAP);
+  const midiLearnTargetRef = useRef(null);
+  const usePadVelocityRef = useRef(true);
 
   useEffect(() => { synthMutedRef.current = synthMuted; }, [synthMuted]);
   useEffect(() => { midiMutedRef.current = midiMuted; }, [midiMuted]);
@@ -70,6 +112,10 @@ function MidiController() {
   useEffect(() => { keyVelocitiesRef.current = keyVelocities; }, [keyVelocities]);
   useEffect(() => { velocityMultiplierRef.current = velocityMultiplier; }, [velocityMultiplier]);
   useEffect(() => { midiChannelRef.current = midiChannel; }, [midiChannel]);
+  useEffect(() => { selectedInputRef.current = selectedInput; }, [selectedInput]);
+  useEffect(() => { padMapRef.current = padMap; }, [padMap]);
+  useEffect(() => { midiLearnTargetRef.current = midiLearnTarget; }, [midiLearnTarget]);
+  useEffect(() => { usePadVelocityRef.current = usePadVelocity; }, [usePadVelocity]);
 
   useEffect(() => {
     currentNoteRef.current = currentNote;
@@ -87,15 +133,18 @@ function MidiController() {
     };
   }, [velocityPopup]);
 
-  // MIDI Access — cache the access object
+  // MIDI Access — cache the access object, enumerate inputs + outputs
   useEffect(() => {
     const getMIDIAccess = async () => {
       try {
         const access = await navigator.requestMIDIAccess();
         midiAccessRef.current = access;
         const outputs = Array.from(access.outputs.values());
-        console.log('[MIDI] Access granted. Outputs:', outputs.map(o => ({ id: o.id, name: o.name, state: o.state })));
+        const inputs = Array.from(access.inputs.values());
+        console.log('[MIDI] Access granted. Outputs:', outputs.map(o => ({ id: o.id, name: o.name })));
+        console.log('[MIDI] Inputs:', inputs.map(i => ({ id: i.id, name: i.name })));
         setMidiOutputs(outputs);
+        setMidiInputs(inputs);
         if (outputs.length > 0) {
           const preferred = pickPreferredOutput(outputs);
           console.log('[MIDI] Auto-selecting output:', preferred.name, preferred.id);
@@ -104,18 +153,30 @@ function MidiController() {
           console.warn('[MIDI] No outputs found');
         }
 
+        // Auto-select first input
+        if (inputs.length > 0) {
+          console.log('[MIDI] Auto-selecting input:', inputs[0].name, inputs[0].id);
+          setSelectedInput(inputs[0].id);
+        }
+
         // Listen for device changes
         access.onstatechange = (e) => {
           console.log('[MIDI] State change:', e.port.name, e.port.state);
-          const updated = Array.from(access.outputs.values());
-          setMidiOutputs(updated);
-          const selectedStillExists = updated.some((o) => o.id === selectedOutputRef.current);
+          const updatedOutputs = Array.from(access.outputs.values());
+          const updatedInputs = Array.from(access.inputs.values());
+          setMidiOutputs(updatedOutputs);
+          setMidiInputs(updatedInputs);
+          const selectedStillExists = updatedOutputs.some((o) => o.id === selectedOutputRef.current);
           if (!selectedStillExists) {
-            const preferred = pickPreferredOutput(updated);
+            const preferred = pickPreferredOutput(updatedOutputs);
             if (preferred) {
               console.log('[MIDI] Re-selecting output after state change:', preferred.name, preferred.id);
               setSelectedOutput(preferred.id);
             }
+          }
+          const inputStillExists = updatedInputs.some((i) => i.id === selectedInputRef.current);
+          if (!inputStillExists && updatedInputs.length > 0) {
+            setSelectedInput(updatedInputs[0].id);
           }
         };
       } catch (err) {
@@ -133,6 +194,104 @@ function MidiController() {
     const output = midiOutputs.find((o) => o.id === selectedOutput);
     console.log('[MIDI] Selected output changed:', output ? `${output.name} (${output.id})` : selectedOutput);
   }, [selectedOutput, midiOutputs]);
+
+  // MIDI Input listener — handles pad presses through the mapping system
+  const handleMidiInput = useCallback((note, velocity, isNoteOn) => {
+    const mapping = padMapRef.current[note];
+
+    // Show activity regardless of mapping
+    if (isNoteOn) {
+      setLastMidiIn({ note, vel: velocity, name: getNoteName(note) });
+    }
+
+    // MIDI Learn mode — assign this note to the target interval
+    if (isNoteOn && midiLearnTargetRef.current !== null) {
+      const targetInterval = midiLearnTargetRef.current;
+      setPadMap(prev => {
+        // Remove any existing mapping for this note
+        const next = { ...prev };
+        // Also remove any other pad mapped to this same interval (one-to-one)
+        Object.keys(next).forEach(k => {
+          if (next[k].interval === targetInterval) delete next[k];
+        });
+        next[note] = { interval: targetInterval, label: `Note ${note} (${getNoteName(note)})` };
+        return next;
+      });
+      setMidiLearnTarget(null);
+      return;
+    }
+
+    if (!mapping) return;
+
+    const padLabel = `__pad_${note}__`;
+
+    if (isNoteOn) {
+      // Release any previous note this pad is holding
+      const prevNote = heldNotesRef.current.get(padLabel);
+      if (prevNote !== undefined) {
+        noteOff(prevNote);
+        heldNotesRef.current.delete(padLabel);
+      }
+
+      const interval = mapping.interval;
+      setLastInterval(interval);
+
+      const newNote = Math.max(0, Math.min(127, currentNoteRef.current + interval));
+      heldNotesRef.current.set(padLabel, newNote);
+      setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
+      setCurrentNote(newNote);
+      setNoteHistory(prev => [...prev.slice(-999), { note: newNote, time: Date.now() }]);
+
+      // Use pad velocity if enabled, otherwise use multiplier
+      if (usePadVelocityRef.current) {
+        const vel = Math.max(1, Math.min(127, Math.round(velocity * velocityMultiplierRef.current / 100)));
+        if (!synthMutedRef.current) playNote(newNote, vel);
+        const output = getMidiOutput();
+        if (output && !midiMutedRef.current) {
+          if (midiChannelRef.current === 0) {
+            for (let ch = 0; ch < 16; ch++) output.send([0x90 + ch, newNote, vel]);
+          } else {
+            output.send([0x90 + (midiChannelRef.current - 1), newNote, vel]);
+          }
+        }
+      } else {
+        noteOn(newNote, null);
+      }
+    } else {
+      // Note off
+      const heldNote = heldNotesRef.current.get(padLabel);
+      if (heldNote !== undefined) {
+        noteOff(heldNote);
+        heldNotesRef.current.delete(padLabel);
+      }
+      setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
+    }
+  }, [noteOn, noteOff, playNote, getMidiOutput]);
+
+  // Attach/detach MIDI input listener when input selection changes
+  useEffect(() => {
+    if (!midiAccessRef.current || !selectedInput) return;
+
+    const input = midiAccessRef.current.inputs.get(selectedInput);
+    if (!input) return;
+
+    console.log('[MIDI-IN] Listening on:', input.name);
+
+    const onMessage = (e) => {
+      const [status, note, velocity] = e.data;
+      const cmd = status & 0xf0;
+      if (cmd === 0x90 && velocity > 0) {
+        handleMidiInput(note, velocity, true);
+      } else if (cmd === 0x80 || (cmd === 0x90 && velocity === 0)) {
+        handleMidiInput(note, velocity, false);
+      }
+    };
+
+    input.onmidimessage = onMessage;
+    return () => {
+      input.onmidimessage = null;
+    };
+  }, [selectedInput, handleMidiInput]);
 
   // Helper to get the cached MIDI output
   const getMidiOutput = useCallback(() => {
@@ -308,31 +467,137 @@ function MidiController() {
             {midiMuted ? '🚫' : '🎹'} MIDI
           </button>
         </div>
-        <div className="midi-routing">
-          <select
-            className="midi-select"
-            value={selectedOutput || ''}
-            onChange={(e) => setSelectedOutput(e.target.value || null)}
-            title="Select the MIDI output device to send notes to"
-          >
-            <option value="">No MIDI Out</option>
-            {midiOutputs.map(output => (
-              <option key={output.id} value={output.id}>{output.name}</option>
-            ))}
-          </select>
-          <select
-            className="midi-select midi-ch-select"
-            value={midiChannel}
-            onChange={(e) => setMidiChannel(Number(e.target.value))}
-            title="MIDI channel to send on. 'ALL' sends to all 16 channels simultaneously"
-          >
-            <option value={0}>ALL</option>
-            {Array.from({ length: 16 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>Ch {i + 1}</option>
-            ))}
-          </select>
-        </div>
       </header>
+
+      {/* MIDI Config Panel */}
+      <button
+        className="controls-toggle midi-config-toggle"
+        onClick={() => setShowMidiConfig(!showMidiConfig)}
+      >
+        {showMidiConfig ? '▾ Hide MIDI Setup' : '▸ MIDI Setup'}
+      </button>
+      <div className={`midi-config-wrapper ${showMidiConfig ? 'open' : ''}`}>
+        <div className="midi-config-panel">
+          {/* I/O Selection */}
+          <div className="midi-io-section">
+            <div className="midi-io-col">
+              <h4 className="midi-io-heading">MIDI Input</h4>
+              <select
+                className="midi-select midi-io-select"
+                value={selectedInput || ''}
+                onChange={(e) => setSelectedInput(e.target.value || null)}
+              >
+                <option value="">No MIDI In</option>
+                {midiInputs.map(input => (
+                  <option key={input.id} value={input.id}>{input.name}</option>
+                ))}
+              </select>
+              {lastMidiIn && (
+                <div className="midi-activity">
+                  Last: Note {lastMidiIn.note} ({lastMidiIn.name}) vel {lastMidiIn.vel}
+                </div>
+              )}
+            </div>
+            <div className="midi-io-col">
+              <h4 className="midi-io-heading">MIDI Output</h4>
+              <select
+                className="midi-select midi-io-select"
+                value={selectedOutput || ''}
+                onChange={(e) => setSelectedOutput(e.target.value || null)}
+              >
+                <option value="">No MIDI Out</option>
+                {midiOutputs.map(output => (
+                  <option key={output.id} value={output.id}>{output.name}</option>
+                ))}
+              </select>
+              <select
+                className="midi-select midi-ch-select"
+                value={midiChannel}
+                onChange={(e) => setMidiChannel(Number(e.target.value))}
+              >
+                <option value={0}>ALL Ch</option>
+                {Array.from({ length: 16 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>Ch {i + 1}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Pad Velocity Toggle */}
+          <div className="midi-option-row">
+            <label className="midi-option-label">
+              <input
+                type="checkbox"
+                checked={usePadVelocity}
+                onChange={(e) => setUsePadVelocity(e.target.checked)}
+              />
+              Use pad velocity (pass through how hard you hit)
+            </label>
+          </div>
+
+          {/* Pad Mapping */}
+          <div className="pad-map-section">
+            <h4 className="midi-io-heading">Pad Mapping</h4>
+            <p className="pad-map-hint">
+              Map your controller pads to intervals. Click <strong>Learn</strong> then hit a pad to assign it.
+            </p>
+            <div className="pad-map-grid">
+              {ASSIGNABLE_ACTIONS.map(action => {
+                // Find which MIDI note is mapped to this interval
+                const mappedEntry = Object.entries(padMap).find(([, v]) => v.interval === action.value);
+                const mappedNote = mappedEntry ? Number(mappedEntry[0]) : null;
+                const isLearning = midiLearnTarget === action.value;
+                return (
+                  <div key={action.value} className={`pad-map-row ${isLearning ? 'learning' : ''}`}>
+                    <span className={`pad-map-interval ${
+                      action.value < 0 ? 'neg' : action.value > 0 ? 'pos' : 'zero'
+                    }`}>{action.label}</span>
+                    <span className="pad-map-assignment">
+                      {mappedNote !== null
+                        ? `Note ${mappedNote} (${getNoteName(mappedNote)})`
+                        : '—'}
+                    </span>
+                    <button
+                      className={`pad-map-learn-btn ${isLearning ? 'active' : ''}`}
+                      onClick={() => setMidiLearnTarget(isLearning ? null : action.value)}
+                    >
+                      {isLearning ? '⏳ Hit pad…' : 'Learn'}
+                    </button>
+                    {mappedNote !== null && (
+                      <button
+                        className="pad-map-clear-btn"
+                        onClick={() => setPadMap(prev => {
+                          const next = { ...prev };
+                          delete next[mappedNote];
+                          return next;
+                        })}
+                        title="Remove this mapping"
+                      >✕</button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="pad-map-actions">
+              <button
+                className="pad-map-action-btn"
+                onClick={() => setPadMap(DEFAULT_PAD_MAP)}
+                title="Reset all pad mappings to MPD218 defaults (Bank A)"
+              >Reset to defaults</button>
+              <button
+                className="pad-map-action-btn"
+                onClick={() => setPadMap({})}
+                title="Clear all pad mappings"
+              >Clear all</button>
+              <button
+                className="pad-map-action-btn"
+                onClick={() => setMidiLearnTarget(null)}
+                disabled={midiLearnTarget === null}
+              >Cancel Learn</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Note Display */}
       <div className="note-display">

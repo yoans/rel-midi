@@ -130,13 +130,7 @@ body {
   background: rgba(249, 115, 22, 0.25);
 }
 
-/* === MIDI Routing === */
-.midi-routing {
-  display: flex;
-  justify-content: center;
-  gap: 0.4rem;
-  margin-top: 0.4rem;
-}
+/* === MIDI Routing (now in config panel) === */
 
 .midi-select {
   padding: 0.25rem 0.5rem;
@@ -166,6 +160,227 @@ body {
 
 .midi-ch-select {
   width: 72px;
+}
+
+/* === MIDI Config Panel === */
+.midi-config-toggle {
+  margin-top: 0;
+}
+
+.midi-config-wrapper {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.midi-config-wrapper.open {
+  max-height: 800px;
+}
+
+.midi-config-panel {
+  padding: 0.8rem;
+  background: var(--bg-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.midi-io-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.midi-io-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.midi-io-heading {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--secondary);
+  margin: 0;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.midi-io-select {
+  width: 100%;
+}
+
+.midi-activity {
+  font-size: 0.58rem;
+  color: var(--primary);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 0.2rem 0.4rem;
+  background: var(--primary-dim);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.midi-option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0;
+}
+
+.midi-option-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.midi-option-label input[type="checkbox"] {
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* Pad Mapping */
+.pad-map-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pad-map-hint {
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.pad-map-hint strong {
+  color: var(--text);
+}
+
+.pad-map-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.pad-map-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.28rem 0.5rem;
+  background: var(--bg-panel);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: var(--transition);
+}
+
+.pad-map-row.learning {
+  border-color: var(--primary);
+  background: var(--primary-dim);
+  animation: pulse-learn 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-learn {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 232, 143, 0.2); }
+  50% { box-shadow: 0 0 12px 2px rgba(0, 232, 143, 0.3); }
+}
+
+.pad-map-interval {
+  font-size: 0.72rem;
+  font-weight: 800;
+  min-width: 42px;
+  text-align: center;
+}
+
+.pad-map-interval.neg { color: var(--neg); }
+.pad-map-interval.pos { color: var(--pos); }
+.pad-map-interval.zero { color: var(--zero); }
+
+.pad-map-assignment {
+  flex: 1;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.pad-map-learn-btn {
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-surface);
+  color: var(--text-dim);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.pad-map-learn-btn:hover {
+  border-color: var(--primary);
+  color: var(--text);
+  background: var(--primary-dim);
+}
+
+.pad-map-learn-btn.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-dim);
+}
+
+.pad-map-clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  transition: var(--transition);
+}
+
+.pad-map-clear-btn:hover {
+  color: var(--neg);
+  background: var(--neg-dim);
+}
+
+.pad-map-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.pad-map-action-btn {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.pad-map-action-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--text);
+  background: var(--primary-dim);
+}
+
+.pad-map-action-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* === Note Display === */
