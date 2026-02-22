@@ -52,6 +52,7 @@ function MidiController() {
   const [keyVelocities, setKeyVelocities] = useState(DEFAULT_VELOCITIES);
   const [velocityMultiplier, setVelocityMultiplier] = useState(100);
   const [midiChannel, setMidiChannel] = useState(1);
+  const [velocityPopup, setVelocityPopup] = useState(null); // key label or null
 
   const currentNoteRef = useRef(60);
   const synthMutedRef = useRef(false);
@@ -73,6 +74,18 @@ function MidiController() {
   useEffect(() => {
     currentNoteRef.current = currentNote;
   }, [currentNote]);
+
+  // Close velocity popup on outside click
+  useEffect(() => {
+    if (!velocityPopup) return;
+    const handleClickOutside = () => setVelocityPopup(null);
+    // Delay to avoid immediately closing from the same click
+    const id = setTimeout(() => window.addEventListener('click', handleClickOutside), 0);
+    return () => {
+      clearTimeout(id);
+      window.removeEventListener('click', handleClickOutside);
+    };
+  }, [velocityPopup]);
 
   // MIDI Access — cache the access object
   useEffect(() => {
@@ -374,27 +387,75 @@ function MidiController() {
                 isSpace ? 'space' : '',
                 interval < 0 ? 'neg' : interval > 0 ? 'pos' : 'zero',
                 pressedKeys.has(key) ? 'pressed' : '',
+                velocityPopup === key ? 'editing' : '',
               ].filter(Boolean).join(' ')}
               style={{ opacity }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setVelocityPopup(prev => prev === key ? null : key);
+              }}
             >
               <span className="key-cap">{key}</span>
               <span className="key-interval">
                 {interval > 0 ? `+${interval}` : interval === 0 ? 'RPT' : interval}
               </span>
               <span className="key-target">{getNoteName(targetNote)}</span>
-              <input
-                type="range"
-                className="key-velocity-slider"
-                min="1" max="127" step="1"
-                value={vel}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  setKeyVelocities(prev => ({ ...prev, [key]: Number(e.target.value) }));
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-                title={`Per-key velocity for ${key}: ${vel}/127 — controls how hard this key strikes`}
-              />
+              <span className="key-vel-badge">{vel}</span>
+
+              {velocityPopup === key && (
+                <div
+                  className={`vel-popup ${interval < 0 ? 'neg' : interval > 0 ? 'pos' : 'zero'}`}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <div className="vel-popup-header">
+                    <span className="vel-popup-title">Key {key} Velocity</span>
+                    <button className="vel-popup-close" onClick={() => setVelocityPopup(null)}>✕</button>
+                  </div>
+                  <p className="vel-popup-desc">
+                    Controls how hard the <strong>{key}</strong> key strikes.
+                    Only affects this key — other keys keep their own velocity.
+                  </p>
+                  <div className="vel-popup-slider-row">
+                    <span className="vel-popup-min">1</span>
+                    <input
+                      type="range"
+                      className="vel-popup-slider"
+                      min="1" max="127" step="1"
+                      value={vel}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setKeyVelocities(prev => ({ ...prev, [key]: Number(e.target.value) }));
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                    <span className="vel-popup-max">127</span>
+                  </div>
+                  <div className="vel-popup-value-row">
+                    <input
+                      type="number"
+                      className="vel-popup-num"
+                      min="1" max="127"
+                      value={vel}
+                      onChange={(e) => {
+                        const v = Math.max(1, Math.min(127, Number(e.target.value) || 1));
+                        setKeyVelocities(prev => ({ ...prev, [key]: v }));
+                      }}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <span className="vel-popup-of">/ 127</span>
+                    <button
+                      className="vel-popup-reset"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setKeyVelocities(prev => ({ ...prev, [key]: 100 }));
+                      }}
+                    >Reset</button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
