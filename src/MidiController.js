@@ -622,20 +622,23 @@ function MidiController() {
         </button>
       </div>
 
-      {/* Note History */}
-      <div className="note-history">
-        {noteHistory.map((entry, i) => {
-          const isCurrent = i === noteHistory.length - 1;
-          return (
-            <div
-              key={`${entry.time}-${i}`}
-              className={`history-note ${isCurrent ? 'current' : ''}`}
-              style={{ opacity: 0.25 + (i / noteHistory.length) * 0.75 }}
-            >
-              {getNoteName(entry.note)}
-            </div>
-          );
-        })}
+      {/* Notes Played */}
+      <div className="note-history-section">
+        <label className="section-label">Notes Played</label>
+        <div className="note-history">
+          {noteHistory.map((entry, i) => {
+            const isCurrent = i === noteHistory.length - 1;
+            return (
+              <div
+                key={`${entry.time}-${i}`}
+                className={`history-note ${isCurrent ? 'current' : ''}`}
+                style={{ opacity: 0.25 + (i / noteHistory.length) * 0.75 }}
+              >
+                {getNoteName(entry.note)}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Key Hints */}
