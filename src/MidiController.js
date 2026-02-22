@@ -47,15 +47,11 @@ function MidiController() {
   const [pressedKeys, setPressedKeys] = useState(new Set());
   const [lastInterval, setLastInterval] = useState(null);
   const [showControls, setShowControls] = useState(false);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [synthMuted, setSynthMuted] = useState(false);
   const [midiMuted, setMidiMuted] = useState(false);
   const [keyVelocities, setKeyVelocities] = useState(DEFAULT_VELOCITIES);
   const [velocityMultiplier, setVelocityMultiplier] = useState(100);
   const [midiChannel, setMidiChannel] = useState(1);
-  const [diagNote, setDiagNote] = useState(60);
-  const [diagVolume, setDiagVolume] = useState(100);
-  const [diagProgram, setDiagProgram] = useState(0);
 
   const currentNoteRef = useRef(60);
   const synthMutedRef = useRef(false);
@@ -141,67 +137,6 @@ function MidiController() {
     }
     return output || null;
   }, []);
-
-  const sendMidiToSelectedChannels = useCallback((statusBase, data1, data2, label) => {
-    const output = getMidiOutput();
-    if (!output || midiMutedRef.current) {
-      console.log(`[MIDI-DIAG] Skipped ${label}: output=${!!output} midiMuted=${midiMutedRef.current}`);
-      return false;
-    }
-
-    if (midiChannelRef.current === 0) {
-      for (let ch = 0; ch < 16; ch++) {
-        output.send([statusBase + ch, data1, data2]);
-      }
-      console.log(`[MIDI-DIAG] ${label} sent on ALL channels -> ${output.name}`);
-      return true;
-    }
-
-    const ch = midiChannelRef.current - 1;
-    output.send([statusBase + ch, data1, data2]);
-    console.log(`[MIDI-DIAG] ${label} sent on ch${ch + 1} -> ${output.name}`);
-    return true;
-  }, [getMidiOutput]);
-
-  const handleDiagTestNote = useCallback(() => {
-    const note = Math.max(0, Math.min(127, diagNote));
-    const velocity = Math.max(1, Math.min(127, Math.round((diagVolume * velocityMultiplierRef.current) / 100)));
-    const sent = sendMidiToSelectedChannels(0x90, note, velocity, `Test Note ON note=${note} vel=${velocity}`);
-    if (!sent) return;
-    setTimeout(() => {
-      sendMidiToSelectedChannels(0x80, note, 0, `Test Note OFF note=${note}`);
-    }, 400);
-  }, [diagNote, diagVolume, sendMidiToSelectedChannels]);
-
-  const handleDiagAllNotesOff = useCallback(() => {
-    sendMidiToSelectedChannels(0xB0, 123, 0, 'All Notes Off (CC123)');
-  }, [sendMidiToSelectedChannels]);
-
-  const handleDiagSendVolume = useCallback(() => {
-    const value = Math.max(0, Math.min(127, diagVolume));
-    sendMidiToSelectedChannels(0xB0, 7, value, `CC7 Volume=${value}`);
-  }, [diagVolume, sendMidiToSelectedChannels]);
-
-  const handleDiagSendProgram = useCallback(() => {
-    const program = Math.max(0, Math.min(127, diagProgram));
-    const output = getMidiOutput();
-    if (!output || midiMutedRef.current) {
-      console.log(`[MIDI-DIAG] Skipped Program Change: output=${!!output} midiMuted=${midiMutedRef.current}`);
-      return;
-    }
-
-    if (midiChannelRef.current === 0) {
-      for (let ch = 0; ch < 16; ch++) {
-        output.send([0xC0 + ch, program]);
-      }
-      console.log(`[MIDI-DIAG] Program Change ${program} sent on ALL channels -> ${output.name}`);
-      return;
-    }
-
-    const ch = midiChannelRef.current - 1;
-    output.send([0xC0 + ch, program]);
-    console.log(`[MIDI-DIAG] Program Change ${program} sent on ch${ch + 1} -> ${output.name}`);
-  }, [diagProgram, getMidiOutput]);
 
   const noteOn = useCallback((note, keyLabel) => {
     const perKey = keyLabel ? (keyVelocitiesRef.current[keyLabel] || 100) : 100;
@@ -383,57 +318,6 @@ function MidiController() {
               <option key={i + 1} value={i + 1}>Ch {i + 1}</option>
             ))}
           </select>
-        </div>
-        <button
-          className="controls-toggle diag-toggle"
-          onClick={() => setShowDiagnostics(!showDiagnostics)}
-          title="MIDI diagnostic tools for testing output, sending control messages, and troubleshooting"
-        >
-          {showDiagnostics ? '▾ Hide MIDI Diagnostics' : '▸ MIDI Diagnostics'}
-        </button>
-        <div className={`midi-diagnostics ${showDiagnostics ? 'open' : ''}`}>
-          <div className="diag-row">
-            <button className="diag-btn" onClick={handleDiagTestNote}
-              title="Send a short test note to verify MIDI output is working">Test Note</button>
-            <button className="diag-btn" onClick={handleDiagAllNotesOff}
-              title="Send CC123 (All Notes Off) to silence any stuck or hanging notes">All Notes Off</button>
-          </div>
-          <div className="diag-row diag-controls">
-            <label className="diag-label" title="MIDI note number for the test note (0 = C-1, 60 = C4, 127 = G9)">Note</label>
-            <input
-              className="diag-num"
-              type="number"
-              min="0"
-              max="127"
-              value={diagNote}
-              onChange={(e) => setDiagNote(Number(e.target.value))}
-              title="MIDI note number (0-127) for test note"
-            />
-            <label className="diag-label" title="Control Change 7 — standard MIDI volume control">CC7</label>
-            <input
-              className="diag-num"
-              type="number"
-              min="0"
-              max="127"
-              value={diagVolume}
-              onChange={(e) => setDiagVolume(Number(e.target.value))}
-              title="MIDI volume level (0-127)"
-            />
-            <button className="diag-btn" onClick={handleDiagSendVolume}
-              title="Send a CC7 (Channel Volume) message to set the volume on the selected output">Send Vol</button>
-            <label className="diag-label" title="Program Change — switch the instrument/patch on the receiving device">Prog</label>
-            <input
-              className="diag-num"
-              type="number"
-              min="0"
-              max="127"
-              value={diagProgram}
-              onChange={(e) => setDiagProgram(Number(e.target.value))}
-              title="MIDI program/patch number (0-127)"
-            />
-            <button className="diag-btn" onClick={handleDiagSendProgram}
-              title="Send a Program Change message to switch the instrument/patch on the receiving device">Send Prog</button>
-          </div>
         </div>
       </header>
 

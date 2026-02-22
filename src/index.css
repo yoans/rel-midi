@@ -163,83 +163,9 @@ body {
   color: var(--text);
 }
 
-.midi-diagnostics {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease, margin 0.3s ease;
-  padding: 0 0.45rem;
-  margin-top: 0;
-}
-
-.midi-diagnostics.open {
-  max-height: 200px;
-  margin-top: 0.45rem;
-  padding: 0.45rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-surface);
-}
-
-.diag-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
-.diag-row + .diag-row {
-  margin-top: 0.35rem;
-}
-
-.diag-btn {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-panel);
-  color: var(--text);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  padding: 0.24rem 0.5rem;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.diag-btn:hover {
-  border-color: var(--primary);
-  background: var(--primary-dim);
-}
-
-.diag-toggle {
-  margin-top: 0.45rem;
-  font-size: 0.68rem;
-}
-
-.diag-label {
-  color: var(--text-dim);
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
-.diag-num {
-  width: 56px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-panel);
-  color: var(--text);
-  padding: 0.18rem 0.3rem;
-  font-size: 0.62rem;
-  font-weight: 700;
-  outline: none;
-}
-
-.diag-num:focus {
-  border-color: var(--primary);
-}
 
 .midi-ch-select {
-  width: 60px;
+  width: 72px;
 }
 
 /* === Note Display === */
