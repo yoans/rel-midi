@@ -1,7 +1,7 @@
 {
   "name": "rel-midi",
   "version": "1.0.0",
-  "homepage": "https://yoans.github.io/rel-midi",
+  "homepage": ".",
   "private": true,
   "dependencies": {
     "bootstrap": "^5.3.3",

@@ -1,0 +1,5 @@
+[     550ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://relmidi.sagaciasoft.com/rel-midi/static/js/main.c60ca722.js:0
+[     551ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://relmidi.sagaciasoft.com/rel-midi/static/css/main.89736bfa.css:0
+[     650ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://relmidi.sagaciasoft.com/rel-midi/manifest.json:0
+[     657ms] [ERROR] Manifest fetch from https://relmidi.sagaciasoft.com/rel-midi/manifest.json failed, code 404 @ https://relmidi.sagaciasoft.com/:0
+[     671ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://relmidi.sagaciasoft.com/rel-midi/favicon.ico:0
