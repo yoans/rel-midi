@@ -539,16 +539,16 @@ function MidiController() {
           <button
             className={`mute-btn ${synthMuted ? 'muted' : ''}`}
             onClick={() => setSynthMuted(m => !m)}
-            title={synthMuted ? 'Unmute Synth' : 'Mute Synth'}
+            title={synthMuted ? 'Enable browser sound' : 'Disable browser sound'}
           >
-            {synthMuted ? '🔇' : '🔊'} Synth
+            {synthMuted ? '🔇' : '🔊'} {synthMuted ? 'Enable' : 'Disable'} Browser Sound
           </button>
           <button
             className={`mute-btn ${midiMuted ? 'muted' : ''}`}
             onClick={() => setMidiMuted(m => !m)}
-            title={midiMuted ? 'Unmute MIDI' : 'Mute MIDI'}
+            title={midiMuted ? 'Enable external MIDI' : 'Disable external MIDI'}
           >
-            {midiMuted ? '🚫' : '🎹'} MIDI
+            {midiMuted ? '🚫' : '🎹'} {midiMuted ? 'Enable' : 'Disable'} External MIDI
           </button>
         </div>
       </header>

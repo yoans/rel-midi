@@ -131,30 +131,30 @@ const Staff = ({ noteHistory }) => {
       <g key={li}>
         {/* Left barline connecting both staves */}
         <line x1={CLEF_W - 10} y1={topY} x2={CLEF_W - 10} y2={botY}
-          stroke="rgba(255,255,255,0.15)" strokeWidth={1.5} />
+          stroke="rgba(255,255,255,0.35)" strokeWidth={1.5} />
 
         {/* Treble staff lines */}
         {tYs.map((y, i) => (
           <line key={`t${i}`} x1={CLEF_W - 10} y1={y} x2={w} y2={y}
-            stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+            stroke="rgba(255,255,255,0.3)" strokeWidth={1} />
         ))}
 
         {/* Bass staff lines */}
         {bYs.map((y, i) => (
           <line key={`b${i}`} x1={CLEF_W - 10} y1={y} x2={w} y2={y}
-            stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+            stroke="rgba(255,255,255,0.3)" strokeWidth={1} />
         ))}
 
         {/* Treble clef glyph */}
         <text x={CLEF_W - 8} y={yOff + trebleY(2) + 10}
-          fill="rgba(255,255,255,0.18)" fontSize="38"
+          fill="rgba(255,255,255,0.4)" fontSize="38"
           fontFamily="'Times New Roman', serif" style={{ userSelect: 'none' }}>
           𝄞
         </text>
 
         {/* Bass clef glyph */}
         <text x={CLEF_W - 6} y={yOff + bassY(-6) + 8}
-          fill="rgba(255,255,255,0.18)" fontSize="28"
+          fill="rgba(255,255,255,0.4)" fontSize="28"
           fontFamily="'Times New Roman', serif" style={{ userSelect: 'none' }}>
           𝄢
         </text>
@@ -170,7 +170,7 @@ const Staff = ({ noteHistory }) => {
           const globalI   = expanded ? li * perLine + i : i;
           const total     = expanded ? noteHistory.length : visible.length;
           const opacity   = 0.2 + (globalI / Math.max(1, total)) * 0.8;
-          const color     = isCurrent ? '#00e88f' : 'rgba(255,255,255,0.45)';
+          const color     = isCurrent ? '#00e88f' : 'rgba(255,255,255,0.7)';
           const stemUp    = onTreble(sp) ? sp < 4 : sp < -8;
           const stemX     = stemUp ? x + NRX - 0.5 : x - NRX + 0.5;
           const stemY2    = stemUp ? y - STEM_LEN : y + STEM_LEN;
@@ -179,7 +179,7 @@ const Staff = ({ noteHistory }) => {
             <g key={`${entry.time}-${i}`} opacity={opacity}>
               {ledgers.map((ly, k) => (
                 <line key={k} x1={x - 9} y1={ly} x2={x + 9} y2={ly}
-                  stroke="rgba(255,255,255,0.18)" strokeWidth={1} />
+                  stroke="rgba(255,255,255,0.4)" strokeWidth={1} />
               ))}
               {sharp && (
                 <text x={x - 13} y={y + 4} fill={color} fontSize="10" fontWeight="bold">♯</text>
