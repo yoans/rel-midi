@@ -122,10 +122,11 @@ function MidiController() {
   const [usePadVelocity, setUsePadVelocity] = useState(true);
   const [rapidLearnActive, setRapidLearnActive] = useState(false);
   const rapidLearnActiveRef = useRef(false);
-  const [ccMap, setCcMap] = useState(DEFAULT_CC_MAP); // { ccNumber: controlId }
-  const [ccLearnTarget, setCcLearnTarget] = useState(null); // controlId being learned
+  const [ccMap, setCcMap] = useState(DEFAULT_CC_MAP);
+  const [ccLearnTarget, setCcLearnTarget] = useState(null);
   const ccMapRef = useRef(DEFAULT_CC_MAP);
   const ccLearnTargetRef = useRef(null);
+  const [showInfo, setShowInfo] = useState(false);
 
   const currentNoteRef = useRef(60);
   const synthMutedRef = useRef(false);
@@ -535,6 +536,11 @@ function MidiController() {
       <header className="synth-header">
         <h1>REL-MIDI</h1>
         <p className="subtitle">Relative Interval Controller</p>
+        <button
+          className="info-btn"
+          onClick={() => setShowInfo(true)}
+          title="About REL-MIDI"
+        >ℹ</button>
         <div className="mute-controls">
           <button
             className={`mute-btn ${synthMuted ? 'muted' : ''}`}
@@ -925,6 +931,80 @@ function MidiController() {
           </div>
         </div>
       </div>
+
+      {/* About Modal */}
+      {showInfo && (
+        <div className="modal-overlay" onClick={() => setShowInfo(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowInfo(false)}>✕</button>
+            <h2>REL-MIDI</h2>
+            <p className="modal-tagline">Relative Interval Controller</p>
+
+            <div className="modal-section">
+              <h3>What is this?</h3>
+              <p>
+                REL-MIDI is a browser-based musical instrument that lets you play melodies
+                using <strong>relative intervals</strong> instead of absolute pitches. Instead of
+                pressing "C" then "E" then "G", you press "+4" then "+3" — the interval pattern
+                works from any starting note, in any key.
+              </p>
+            </div>
+
+            <div className="modal-section">
+              <h3>How to play</h3>
+              <ul>
+                <li><strong>Keyboard:</strong> Use A S D F (negative intervals), SPACE (repeat), J K L ; (positive intervals) to move by semitones.</li>
+                <li><strong>Octave jumps:</strong> Click the OCT buttons or map pads to ±12.</li>
+                <li><strong>MIDI pads:</strong> Connect a pad controller (like an Akai MPD218), open MIDI Setup, and map pads to any interval from −12 to +12.</li>
+                <li><strong>Knob mapping:</strong> Map MIDI CC knobs to synth controls (filter, envelope, volume) for hands-on tweaking.</li>
+                <li><strong>Rapid Learn:</strong> Hit ⚡ Rapid Learn, then press your pads left-to-right to assign all intervals in sequence.</li>
+              </ul>
+            </div>
+
+            <div className="modal-section">
+              <h3>Features</h3>
+              <ul>
+                <li>Built-in browser synth with oscillator, ADSR envelope, and resonant filter</li>
+                <li>MIDI output to external instruments, DAWs, and hardware</li>
+                <li>MIDI input with pad-to-interval mapping and CC-to-control mapping</li>
+                <li>Per-key velocity control with adjustable multiplier</li>
+                <li>Live grand staff notation with note history</li>
+                <li>Export your session as SVG or MIDI file</li>
+              </ul>
+            </div>
+
+            <div className="modal-section">
+              <h3>Who is this for?</h3>
+              <p>
+                Producers, composers, and music explorers who want to think in intervals
+                and patterns rather than fixed keys. Ideal for sketching melodies, learning
+                interval relationships, or performing with a pad controller.
+              </p>
+            </div>
+
+            <div className="modal-section">
+              <h3>Requirements</h3>
+              <p>
+                A modern browser with Web MIDI API support (Chrome, Edge, Opera).
+                A MIDI controller is optional — the computer keyboard works out of the box.
+              </p>
+            </div>
+
+            <div className="modal-footer-links">
+              <a href="https://nathaniel-young.com" target="_blank" rel="noopener noreferrer">
+                nathaniel-young.com
+              </a>
+              <span className="modal-copyright">© {new Date().getFullYear()} Nathaniel Young. All rights reserved.</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <footer className="app-footer">
+        <span>© {new Date().getFullYear()} <a href="https://nathaniel-young.com" target="_blank" rel="noopener noreferrer">Nathaniel Young</a></span>
+        <button className="footer-info-link" onClick={() => setShowInfo(true)}>About</button>
+      </footer>
     </div>
   );
 }
