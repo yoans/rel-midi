@@ -28,23 +28,34 @@ const DEFAULT_KEY_LABELS = [
 const DEFAULT_VELOCITIES = {};
 DEFAULT_KEY_LABELS.forEach(k => { DEFAULT_VELOCITIES[k.key] = 100; });
 
-// Default pad mapping — MPD218 Bank A pads (notes 36-44) → 9 intervals
+// Default pad mapping — MPD218 Bank A pads (notes 36-51, 16 pads) → common intervals
 const DEFAULT_PAD_MAP = {
-  36: { interval: -4, label: 'Pad 1' },
-  37: { interval: -3, label: 'Pad 2' },
-  38: { interval: -2, label: 'Pad 3' },
-  39: { interval: -1, label: 'Pad 4' },
-  40: { interval: 0,  label: 'Pad 5' },
-  41: { interval: +1, label: 'Pad 6' },
-  42: { interval: +2, label: 'Pad 7' },
-  43: { interval: +3, label: 'Pad 8' },
-  44: { interval: +4, label: 'Pad 9' },
-  45: { interval: -12, label: 'Pad 10 (Oct-)' },
-  46: { interval: +12, label: 'Pad 11 (Oct+)' },
+  36: { interval: -12, label: 'Pad 1 (Oct−)' },
+  37: { interval: -7,  label: 'Pad 2' },
+  38: { interval: -5,  label: 'Pad 3' },
+  39: { interval: -4,  label: 'Pad 4' },
+  40: { interval: -3,  label: 'Pad 5' },
+  41: { interval: -2,  label: 'Pad 6' },
+  42: { interval: -1,  label: 'Pad 7' },
+  43: { interval: 0,   label: 'Pad 8 (RPT)' },
+  44: { interval: +1,  label: 'Pad 9' },
+  45: { interval: +2,  label: 'Pad 10' },
+  46: { interval: +3,  label: 'Pad 11' },
+  47: { interval: +4,  label: 'Pad 12' },
+  48: { interval: +5,  label: 'Pad 13' },
+  49: { interval: +7,  label: 'Pad 14' },
+  50: { interval: +12, label: 'Pad 15 (Oct+)' },
 };
 
 const ASSIGNABLE_ACTIONS = [
   { value: -12, label: 'Oct −' },
+  { value: -11, label: '−11' },
+  { value: -10, label: '−10' },
+  { value: -9, label: '−9' },
+  { value: -8, label: '−8' },
+  { value: -7, label: '−7' },
+  { value: -6, label: '−6' },
+  { value: -5, label: '−5' },
   { value: -4, label: '−4' },
   { value: -3, label: '−3' },
   { value: -2, label: '−2' },
@@ -55,9 +66,27 @@ const ASSIGNABLE_ACTIONS = [
   { value: +3, label: '+3' },
   { value: +4, label: '+4' },
   { value: +5, label: '+5' },
+  { value: +6, label: '+6' },
   { value: +7, label: '+7' },
+  { value: +8, label: '+8' },
+  { value: +9, label: '+9' },
+  { value: +10, label: '+10' },
+  { value: +11, label: '+11' },
   { value: +12, label: 'Oct +' },
 ];
+
+// Synth controls that can be mapped to MIDI CC knobs/faders
+const SYNTH_CONTROLS = [
+  { id: 'cutoff',       label: 'Filter Cutoff',  min: 20,  max: 20000, step: 10 },
+  { id: 'resonance',    label: 'Resonance',       min: 0,   max: 20,    step: 0.1 },
+  { id: 'attack',       label: 'Attack',          min: 0,   max: 2,     step: 0.01 },
+  { id: 'decay',        label: 'Decay',            min: 0,   max: 2,     step: 0.01 },
+  { id: 'sustain',      label: 'Sustain',          min: 0,   max: 1,     step: 0.01 },
+  { id: 'release',      label: 'Release',          min: 0,   max: 5,     step: 0.01 },
+  { id: 'masterVolume', label: 'Master Volume',    min: 0,   max: 1,     step: 0.01 },
+];
+
+const DEFAULT_CC_MAP = {}; // No default CC mappings
 
 const pickPreferredOutput = (outputs) => {
   if (!outputs.length) return null;
@@ -93,6 +122,10 @@ function MidiController() {
   const [usePadVelocity, setUsePadVelocity] = useState(true);
   const [rapidLearnActive, setRapidLearnActive] = useState(false);
   const rapidLearnActiveRef = useRef(false);
+  const [ccMap, setCcMap] = useState(DEFAULT_CC_MAP); // { ccNumber: controlId }
+  const [ccLearnTarget, setCcLearnTarget] = useState(null); // controlId being learned
+  const ccMapRef = useRef(DEFAULT_CC_MAP);
+  const ccLearnTargetRef = useRef(null);
 
   const currentNoteRef = useRef(60);
   const synthMutedRef = useRef(false);
@@ -119,6 +152,8 @@ function MidiController() {
   useEffect(() => { midiLearnTargetRef.current = midiLearnTarget; }, [midiLearnTarget]);
   useEffect(() => { usePadVelocityRef.current = usePadVelocity; }, [usePadVelocity]);
   useEffect(() => { rapidLearnActiveRef.current = rapidLearnActive; }, [rapidLearnActive]);
+  useEffect(() => { ccMapRef.current = ccMap; }, [ccMap]);
+  useEffect(() => { ccLearnTargetRef.current = ccLearnTarget; }, [ccLearnTarget]);
 
   useEffect(() => {
     currentNoteRef.current = currentNote;
@@ -345,6 +380,36 @@ function MidiController() {
     }
   }, [noteOn, noteOff, playNote, getMidiOutput]);
 
+  // MIDI CC handler — maps CC knobs/faders to synth controls
+  const handleCcInput = useCallback((cc, value) => {
+    // CC Learn mode
+    if (ccLearnTargetRef.current !== null) {
+      const targetControl = ccLearnTargetRef.current;
+      setCcMap(prev => {
+        const next = { ...prev };
+        // Remove any existing mapping for this CC or this control
+        Object.keys(next).forEach(k => {
+          if (next[k] === targetControl) delete next[k];
+        });
+        next[cc] = targetControl;
+        return next;
+      });
+      setCcLearnTarget(null);
+      return;
+    }
+
+    // Apply CC value to mapped synth control
+    const controlId = ccMapRef.current[cc];
+    if (!controlId) return;
+    const ctrl = SYNTH_CONTROLS.find(c => c.id === controlId);
+    if (!ctrl) return;
+    // Map 0-127 → control's min-max range
+    const scaled = ctrl.min + (value / 127) * (ctrl.max - ctrl.min);
+    // Round to step precision
+    const rounded = Math.round(scaled / ctrl.step) * ctrl.step;
+    updateSetting(controlId, Math.max(ctrl.min, Math.min(ctrl.max, rounded)));
+  }, [updateSetting]);
+
   // Attach/detach MIDI input listener when input selection changes
   useEffect(() => {
     if (!midiAccessRef.current || !selectedInput) return;
@@ -361,6 +426,9 @@ function MidiController() {
         handleMidiInput(note, velocity, true);
       } else if (cmd === 0x80 || (cmd === 0x90 && velocity === 0)) {
         handleMidiInput(note, velocity, false);
+      } else if (cmd === 0xB0) {
+        // Control Change: note = CC number, velocity = value
+        handleCcInput(note, velocity);
       }
     };
 
@@ -368,7 +436,7 @@ function MidiController() {
     return () => {
       input.onmidimessage = null;
     };
-  }, [selectedInput, handleMidiInput]);
+  }, [selectedInput, handleMidiInput, handleCcInput]);
 
   // Keyboard handler — polyphonic, all 9 keys can sound simultaneously
   useEffect(() => {
@@ -624,6 +692,58 @@ function MidiController() {
                 className="pad-map-action-btn"
                 onClick={() => { setMidiLearnTarget(null); setRapidLearnActive(false); }}
                 disabled={midiLearnTarget === null}
+              >Cancel Learn</button>
+            </div>
+          </div>
+
+          {/* CC Mapping — Synth Controls */}
+          <div className="pad-map-section">
+            <h4 className="midi-io-heading">Knob / Fader Mapping</h4>
+            <p className="pad-map-hint">
+              Map MIDI CC knobs or faders to synth controls. Click <strong>Learn</strong> then turn a knob.
+            </p>
+            <div className="pad-map-grid">
+              {SYNTH_CONTROLS.map(ctrl => {
+                const mappedEntry = Object.entries(ccMap).find(([, v]) => v === ctrl.id);
+                const mappedCc = mappedEntry ? Number(mappedEntry[0]) : null;
+                const isLearning = ccLearnTarget === ctrl.id;
+                return (
+                  <div key={ctrl.id} className={`pad-map-row ${isLearning ? 'learning' : ''}`}>
+                    <span className="pad-map-interval zero">{ctrl.label}</span>
+                    <span className="pad-map-assignment">
+                      {mappedCc !== null ? `CC ${mappedCc}` : '—'}
+                    </span>
+                    <button
+                      className={`pad-map-learn-btn ${isLearning ? 'active' : ''}`}
+                      onClick={() => setCcLearnTarget(isLearning ? null : ctrl.id)}
+                    >
+                      {isLearning ? '⏳ Turn knob…' : 'Learn'}
+                    </button>
+                    {mappedCc !== null && (
+                      <button
+                        className="pad-map-clear-btn"
+                        onClick={() => setCcMap(prev => {
+                          const next = { ...prev };
+                          delete next[mappedCc];
+                          return next;
+                        })}
+                        title="Remove this mapping"
+                      >✕</button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="pad-map-actions">
+              <button
+                className="pad-map-action-btn"
+                onClick={() => setCcMap({})}
+                title="Clear all CC mappings"
+              >Clear all</button>
+              <button
+                className="pad-map-action-btn"
+                onClick={() => setCcLearnTarget(null)}
+                disabled={ccLearnTarget === null}
               >Cancel Learn</button>
             </div>
           </div>

@@ -299,18 +299,23 @@ body {
 .pad-map-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.15rem;
+  max-height: 300px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 .pad-map-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.28rem 0.5rem;
+  padding: 0.2rem 0.5rem;
   background: var(--bg-panel);
   border-radius: 6px;
   border: 1px solid transparent;
   transition: var(--transition);
+  flex-shrink: 0;
 }
 
 .pad-map-row.learning {
