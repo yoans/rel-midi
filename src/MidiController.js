@@ -562,6 +562,7 @@ function MidiController() {
           {showMidiConfig ? '▾' : '▸'} MIDI Setup
         </button>
         <div className={`collapsible-body ${showMidiConfig ? 'open' : ''}`}>
+        <div className="collapsible-inner">
         <div className="midi-config-panel">
           {/* I/O Selection */}
           <div className="midi-io-section">
@@ -749,6 +750,7 @@ function MidiController() {
           </div>
         </div>
         </div>
+        </div>
       </div>  {/* end MIDI Config collapsible */}
 
       {/* Note Display */}
@@ -915,10 +917,12 @@ function MidiController() {
           {showControls ? '▾' : '▸'} Synth Controls
         </button>
         <div className={`collapsible-body ${showControls ? 'open' : ''}`}>
+          <div className="collapsible-inner">
           <Controls
             settings={settings}
             updateSetting={updateSetting}
           />
+          </div>
         </div>
       </div>
     </div>
