@@ -3,6 +3,7 @@ import { useSynth } from './SynthEngine';
 import Keyboard from './components/Keyboard';
 import Controls from './components/Controls';
 import Staff from './components/Staff';
+import flatScales, { scaleGroups } from './scales';
 
 const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const getNoteName = (midi) => `${NOTE_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
@@ -84,9 +85,51 @@ const SYNTH_CONTROLS = [
   { id: 'sustain',      label: 'Sustain',          min: 0,   max: 1,     step: 0.01 },
   { id: 'release',      label: 'Release',          min: 0,   max: 5,     step: 0.01 },
   { id: 'masterVolume', label: 'Master Volume',    min: 0,   max: 1,     step: 0.01 },
+  { id: 'scaleKey',     label: 'Scale Key',        min: 0,   max: 11,    step: 1 },
+  { id: 'scaleIndex',   label: 'Scale',            min: 0,   max: 199,   step: 1 }, // max clamped in handler
 ];
 
 const DEFAULT_CC_MAP = {}; // No default CC mappings
+
+// ─── Scale helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Walk `steps` scale degrees from `currentNote`.
+ * scale: e.g. [0,2,4,5,7,9,11,12] — last entry is always 12.
+ */
+function scaleStepNote(currentNote, rootKey, scale, steps) {
+  if (steps === 0) return currentNote;
+  const degreesPerOctave = scale.length - 1;
+  const semitoneAboveRoot = currentNote - rootKey;
+  const octave = Math.floor(semitoneAboveRoot / 12);
+  const semitoneInOctave = ((semitoneAboveRoot % 12) + 12) % 12;
+  // Find nearest scale degree within one octave
+  const scaleDeg = scale.slice(0, degreesPerOctave);
+  let closestIdx = 0, closestDist = Infinity;
+  for (let i = 0; i < scaleDeg.length; i++) {
+    const d = Math.abs(scaleDeg[i] - semitoneInOctave);
+    if (d < closestDist) { closestDist = d; closestIdx = i; }
+  }
+  const newGlobal = octave * degreesPerOctave + closestIdx + steps;
+  const newOct = Math.floor(newGlobal / degreesPerOctave);
+  const newIdx = ((newGlobal % degreesPerOctave) + degreesPerOctave) % degreesPerOctave;
+  return Math.max(0, Math.min(127, rootKey + newOct * 12 + scale[newIdx]));
+}
+
+/** Snap `note` to the nearest note that belongs to the given scale+key. */
+function snapToScale(note, rootKey, scale) {
+  const scaleDeg = scale.slice(0, scale.length - 1);
+  let best = note, bestDist = Infinity;
+  for (let n = 0; n <= 127; n++) {
+    if (scaleDeg.includes(((n - rootKey) % 12 + 12) % 12)) {
+      const d = Math.abs(n - note);
+      if (d < bestDist) { bestDist = d; best = n; }
+    }
+  }
+  return best;
+}
+
+const DEFAULT_SCALE_INDEX = Math.max(0, flatScales.findIndex(s => s.label.toLowerCase() === 'chromatic'));
 
 const pickPreferredOutput = (outputs) => {
   if (!outputs.length) return null;
@@ -127,6 +170,11 @@ function MidiController() {
   const ccMapRef = useRef(DEFAULT_CC_MAP);
   const ccLearnTargetRef = useRef(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [scaleKey, setScaleKey] = useState(0);   // 0–11 (C…B)
+  const [scaleIndex, setScaleIndex] = useState(DEFAULT_SCALE_INDEX);
+
+  const scaleKeyRef = useRef(0);
+  const scaleIndexRef = useRef(DEFAULT_SCALE_INDEX);
 
   const currentNoteRef = useRef(60);
   const synthMutedRef = useRef(false);
@@ -155,6 +203,8 @@ function MidiController() {
   useEffect(() => { rapidLearnActiveRef.current = rapidLearnActive; }, [rapidLearnActive]);
   useEffect(() => { ccMapRef.current = ccMap; }, [ccMap]);
   useEffect(() => { ccLearnTargetRef.current = ccLearnTarget; }, [ccLearnTarget]);
+  useEffect(() => { scaleKeyRef.current = scaleKey; }, [scaleKey]);
+  useEffect(() => { scaleIndexRef.current = scaleIndex; }, [scaleIndex]);
 
   useEffect(() => {
     currentNoteRef.current = currentNote;
@@ -381,6 +431,25 @@ function MidiController() {
     }
   }, [noteOn, noteOff, playNote, getMidiOutput]);
 
+  /** Change key without playing a note; snap currentNote to nearest in-scale note. */
+  const changeScaleKey = useCallback((newKey) => {
+    const snapped = snapToScale(currentNoteRef.current, newKey, flatScales[scaleIndexRef.current].value);
+    scaleKeyRef.current = newKey;
+    setScaleKey(newKey);
+    currentNoteRef.current = snapped;
+    setCurrentNote(snapped);
+  }, []);
+
+  /** Change scale without playing a note; snap currentNote into new scale. */
+  const changeScaleIndex = useCallback((newIdx) => {
+    const clamped = Math.max(0, Math.min(flatScales.length - 1, newIdx));
+    const snapped = snapToScale(currentNoteRef.current, scaleKeyRef.current, flatScales[clamped].value);
+    scaleIndexRef.current = clamped;
+    setScaleIndex(clamped);
+    currentNoteRef.current = snapped;
+    setCurrentNote(snapped);
+  }, []);
+
   // MIDI CC handler — maps CC knobs/faders to synth controls
   const handleCcInput = useCallback((cc, value) => {
     // CC Learn mode
@@ -408,8 +477,17 @@ function MidiController() {
     const scaled = ctrl.min + (value / 127) * (ctrl.max - ctrl.min);
     // Round to step precision
     const rounded = Math.round(scaled / ctrl.step) * ctrl.step;
+    // Intercept scale/key controls
+    if (controlId === 'scaleKey') {
+      changeScaleKey(Math.max(0, Math.min(11, Math.round(rounded))));
+      return;
+    }
+    if (controlId === 'scaleIndex') {
+      changeScaleIndex(Math.round(rounded));
+      return;
+    }
     updateSetting(controlId, Math.max(ctrl.min, Math.min(ctrl.max, rounded)));
-  }, [updateSetting]);
+  }, [updateSetting, changeScaleKey, changeScaleIndex]);
 
   // Attach/detach MIDI input listener when input selection changes
   useEffect(() => {
@@ -443,6 +521,11 @@ function MidiController() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.repeat) return;
+      // Scale / key hotkeys: [ ] = key down/up, { } = scale down/up
+      if (e.key === ']') { e.preventDefault(); changeScaleKey((scaleKeyRef.current + 1) % 12); return; }
+      if (e.key === '[') { e.preventDefault(); changeScaleKey((scaleKeyRef.current + 11) % 12); return; }
+      if (e.key === '}') { e.preventDefault(); changeScaleIndex((scaleIndexRef.current + 1) % flatScales.length); return; }
+      if (e.key === '{') { e.preventDefault(); changeScaleIndex((scaleIndexRef.current - 1 + flatScales.length) % flatScales.length); return; }
       const interval = KEY_MAP[e.key.toLowerCase()];
       if (interval !== undefined) {
         e.preventDefault();
@@ -458,7 +541,7 @@ function MidiController() {
         setPressedKeys(prev => new Set([...prev, label]));
         setLastInterval(interval);
 
-        const newNote = Math.max(0, Math.min(127, currentNoteRef.current + interval));
+        const newNote = scaleStepNote(currentNoteRef.current, scaleKeyRef.current, flatScales[scaleIndexRef.current].value, interval);
         heldNotesRef.current.set(label, newNote);
         setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
         setCurrentNote(newNote);
@@ -494,7 +577,7 @@ function MidiController() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [noteOn, noteOff]);
+  }, [noteOn, noteOff, changeScaleKey, changeScaleIndex]);
 
   const handleVisualKeyClick = (note) => {
     // Release any previous mouse-held note
@@ -540,7 +623,7 @@ function MidiController() {
     }
     setPressedKeys(prev => new Set([...prev, key]));
     setLastInterval(interval);
-    const newNote = Math.max(0, Math.min(127, currentNoteRef.current + interval));
+    const newNote = scaleStepNote(currentNoteRef.current, scaleKeyRef.current, flatScales[scaleIndexRef.current].value, interval);
     heldNotesRef.current.set(key, newNote);
     setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
     setCurrentNote(newNote);
@@ -589,6 +672,45 @@ function MidiController() {
           </button>
         </div>
       </header>
+
+      {/* Scale & Key */}
+      <div className="scale-key-panel">
+        <div className="scale-key-row">
+          <span className="scale-key-label">Key</span>
+          <button className="sk-arrow sk-arrow-neg" onClick={() => changeScaleKey((scaleKey + 11) % 12)} title="Key down  [  hotkey">◂</button>
+          <select
+            className="sk-select"
+            value={scaleKey}
+            onChange={(e) => changeScaleKey(Number(e.target.value))}
+          >
+            {NOTE_NAMES.map((name, i) => (
+              <option key={i} value={i}>{name}</option>
+            ))}
+          </select>
+          <button className="sk-arrow sk-arrow-pos" onClick={() => changeScaleKey((scaleKey + 1) % 12)} title="Key up  ]  hotkey">▸</button>
+        </div>
+        <div className="scale-key-row">
+          <span className="scale-key-label">Scale</span>
+          <button className="sk-arrow sk-arrow-neg" onClick={() => changeScaleIndex((scaleIndex - 1 + flatScales.length) % flatScales.length)} title="Scale prev  {  hotkey">◂</button>
+          <select
+            className="sk-select sk-select-wide"
+            value={scaleIndex}
+            onChange={(e) => changeScaleIndex(Number(e.target.value))}
+          >
+            {scaleGroups.map(group => (
+              <optgroup key={group.group} label={group.group}>
+                {Object.keys(group.scales).map((name) => {
+                  const label = name.charAt(0).toUpperCase() + name.slice(1);
+                  const idx = flatScales.findIndex(s => s.label === label);
+                  return <option key={name} value={idx}>{label}</option>;
+                })}
+              </optgroup>
+            ))}
+          </select>
+          <button className="sk-arrow sk-arrow-pos" onClick={() => changeScaleIndex((scaleIndex + 1) % flatScales.length)} title="Scale next  }  hotkey">▸</button>
+        </div>
+        <p className="sk-hotkey-hint">[ / ] cycle key · {'{ / }'} cycle scale</p>
+      </div>
 
       {/* MIDI Config Panel */}
       <div className="collapsible-section">
@@ -959,12 +1081,22 @@ function MidiController() {
       <Staff noteHistory={noteHistory} />
 
       {/* Piano */}
-      <Keyboard
-        activeNotes={activeNotes}
-        onNoteOn={handleVisualKeyClick}
-        onNoteOff={handleVisualKeyRelease}
-        currentNote={currentNote}
-      />
+      {(() => {
+        const scaleVal = flatScales[scaleIndex].value;
+        const overlayNotes = DEFAULT_KEY_LABELS.map(({ key, interval, isSpace }) => ({
+          label: isSpace ? '\u2395' : key,
+          targetNote: interval === 0 ? currentNote : scaleStepNote(currentNote, scaleKey, scaleVal, interval),
+        }));
+        return (
+          <Keyboard
+            activeNotes={activeNotes}
+            onNoteOn={handleVisualKeyClick}
+            onNoteOff={handleVisualKeyRelease}
+            currentNote={currentNote}
+            overlayNotes={overlayNotes}
+          />
+        );
+      })()}
 
       {/* Collapsible Controls */}
       <div className="collapsible-section">

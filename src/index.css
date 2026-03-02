@@ -131,6 +131,100 @@ body {
   background: rgba(249, 115, 22, 0.25);
 }
 
+/* === Scale & Key Panel === */
+.scale-key-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.65rem 0.9rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.scale-key-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.scale-key-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  min-width: 42px;
+}
+
+.sk-select {
+  flex: 1;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: var(--transition);
+  max-width: 160px;
+}
+
+.sk-select-wide {
+  max-width: 220px;
+}
+
+.sk-select:hover,
+.sk-select:focus {
+  border-color: var(--primary);
+  background: var(--primary-dim);
+}
+
+.sk-select option,
+.sk-select optgroup {
+  background: var(--bg-panel);
+  color: var(--text);
+}
+
+.sk-arrow {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.sk-arrow:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-dim);
+}
+
+.sk-arrow:active {
+  transform: scale(0.9);
+}
+
+.sk-hotkey-hint {
+  margin: 0;
+  font-size: 0.52rem;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  text-align: right;
+  opacity: 0.55;
+}
+
 /* === MIDI Routing (now in config panel) === */
 
 .midi-select {

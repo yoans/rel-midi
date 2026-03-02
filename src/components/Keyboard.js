@@ -34,7 +34,7 @@ const getKeyXCenter = (note, startNote) => {
     return KEYBOARD_PADDING + whiteCount * WHITE_WIDTH + WHITE_WIDTH / 2;
 };
 
-const Keyboard = ({ activeNotes, onNoteOn, onNoteOff, currentNote }) => {
+const Keyboard = ({ activeNotes, onNoteOn, onNoteOff, currentNote, overlayNotes }) => {
     const startNote = 36;
     const endNote = 96;
     const containerRef = useRef(null);
@@ -94,16 +94,19 @@ const Keyboard = ({ activeNotes, onNoteOn, onNoteOff, currentNote }) => {
 
                     {/* Floating overlay badges — slide smoothly via CSS transition */}
                     <div className="overlay-layer">
-                        {OVERLAY_KEYS.map(({ label, interval }) => {
-                            const targetNote = currentNote + interval;
+                        {(overlayNotes
+                            ? overlayNotes.map(({ label, targetNote }) => ({ label, targetNote }))
+                            : OVERLAY_KEYS.map(({ label, interval }) => ({ label, targetNote: currentNote + interval }))
+                        ).map(({ label, targetNote }) => {
                             const inRange = targetNote >= startNote && targetNote <= endNote;
                             const clampedNote = Math.max(startNote, Math.min(endNote, targetNote));
                             const x = getKeyXCenter(clampedNote, startNote);
                             const onBlack = isBlackKey(clampedNote);
+                            const diff = targetNote - currentNote;
                             return (
                                 <div
                                     key={label}
-                                    className={`floating-badge ${interval < 0 ? 'neg' : interval > 0 ? 'pos' : 'zero'} ${onBlack ? 'on-black' : ''}`}
+                                    className={`floating-badge ${diff < 0 ? 'neg' : diff > 0 ? 'pos' : 'zero'} ${onBlack ? 'on-black' : ''}`}
                                     style={{
                                         left: `${x}px`,
                                         opacity: inRange ? 1 : 0,
