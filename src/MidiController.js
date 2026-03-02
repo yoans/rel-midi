@@ -531,6 +531,37 @@ function MidiController() {
     setTimeout(() => noteOff(newNote), 400);
   };
 
+  // Touch / on-screen button handlers — mirror the keyboard handler logic
+  const handleTouchBtnDown = useCallback((key, interval) => {
+    const prevNote = heldNotesRef.current.get(key);
+    if (prevNote !== undefined) {
+      noteOff(prevNote);
+      heldNotesRef.current.delete(key);
+    }
+    setPressedKeys(prev => new Set([...prev, key]));
+    setLastInterval(interval);
+    const newNote = Math.max(0, Math.min(127, currentNoteRef.current + interval));
+    heldNotesRef.current.set(key, newNote);
+    setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
+    setCurrentNote(newNote);
+    setNoteHistory(prev => [...prev.slice(-999), { note: newNote, time: Date.now() }]);
+    noteOn(newNote, key);
+  }, [noteOn, noteOff]);
+
+  const handleTouchBtnUp = useCallback((key) => {
+    const heldNote = heldNotesRef.current.get(key);
+    if (heldNote !== undefined) {
+      noteOff(heldNote);
+      heldNotesRef.current.delete(key);
+    }
+    setPressedKeys(prev => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    setActiveNotes(Array.from(new Set(heldNotesRef.current.values())));
+  }, [noteOff]);
+
   return (
     <div className="synth-container">
       <header className="synth-header">
@@ -801,92 +832,113 @@ function MidiController() {
         </div>
       </div>
 
-      {/* Key Hints */}
-      <div className="key-hints-bar">
-        {DEFAULT_KEY_LABELS.map(({ key, interval, isSpace }) => {
-          const targetNote = Math.max(0, Math.min(127, currentNote + interval));
-          const vel = keyVelocities[key] || 100;
-          const opacity = 0.25 + (vel / 127) * 0.75;
-          return (
-            <div
-              key={key}
-              className={[
-                'key-btn',
-                isSpace ? 'space' : '',
-                interval < 0 ? 'neg' : interval > 0 ? 'pos' : 'zero',
-                pressedKeys.has(key) ? 'pressed' : '',
-                velocityPopup === key ? 'editing' : '',
-              ].filter(Boolean).join(' ')}
-              style={{ opacity }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setVelocityPopup(prev => prev === key ? null : key);
-              }}
-            >
-              <span className="key-cap">{key}</span>
-              <span className="key-interval">
-                {interval > 0 ? `+${interval}` : interval === 0 ? 'RPT' : interval}
-              </span>
-              <span className="key-target">{getNoteName(targetNote)}</span>
-              <span className="key-vel-badge">{vel}</span>
-
-              {velocityPopup === key && (
+      {/* Touchscreen Buttons */}
+      <div className="touch-buttons-section">
+        <label className="section-label">Touchscreen Buttons</label>
+        <div className="key-hints-bar">
+          {DEFAULT_KEY_LABELS.map(({ key, interval, isSpace }) => {
+            const targetNote = Math.max(0, Math.min(127, currentNote + interval));
+            const vel = keyVelocities[key] || 100;
+            const opacity = 0.25 + (vel / 127) * 0.75;
+            return (
+              <div
+                key={key}
+                className={`touch-key-col ${velocityPopup === key ? 'editing' : ''}`}
+              >
                 <div
-                  className={`vel-popup ${interval < 0 ? 'neg' : interval > 0 ? 'pos' : 'zero'}`}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
+                  className={[
+                    'key-btn',
+                    isSpace ? 'space' : '',
+                    interval < 0 ? 'neg' : interval > 0 ? 'pos' : 'zero',
+                    pressedKeys.has(key) ? 'pressed' : '',
+                  ].filter(Boolean).join(' ')}
+                  style={{ opacity }}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    handleTouchBtnDown(key, interval);
+                  }}
+                  onPointerUp={() => handleTouchBtnUp(key)}
+                  onPointerCancel={() => handleTouchBtnUp(key)}
                 >
-                  <div className="vel-popup-header">
-                    <span className="vel-popup-title">Key {key} Velocity</span>
-                    <button className="vel-popup-close" onClick={() => setVelocityPopup(null)}>✕</button>
-                  </div>
-                  <p className="vel-popup-desc">
-                    Controls how hard the <strong>{key}</strong> key strikes.
-                    Only affects this key — other keys keep their own velocity.
-                  </p>
-                  <div className="vel-popup-slider-row">
-                    <span className="vel-popup-min">1</span>
-                    <input
-                      type="range"
-                      className="vel-popup-slider"
-                      min="1" max="127" step="1"
-                      value={vel}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        setKeyVelocities(prev => ({ ...prev, [key]: Number(e.target.value) }));
-                      }}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                    />
-                    <span className="vel-popup-max">127</span>
-                  </div>
-                  <div className="vel-popup-value-row">
-                    <input
-                      type="number"
-                      className="vel-popup-num"
-                      min="1" max="127"
-                      value={vel}
-                      onChange={(e) => {
-                        const v = Math.max(1, Math.min(127, Number(e.target.value) || 1));
-                        setKeyVelocities(prev => ({ ...prev, [key]: v }));
-                      }}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <span className="vel-popup-of">/ 127</span>
-                    <button
-                      className="vel-popup-reset"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setKeyVelocities(prev => ({ ...prev, [key]: 100 }));
-                      }}
-                    >Reset</button>
-                  </div>
+                  <span className="key-cap">{key}</span>
+                  <span className="key-interval">
+                    {interval > 0 ? `+${interval}` : interval === 0 ? 'RPT' : interval}
+                  </span>
+                  <span className="key-target">{getNoteName(targetNote)}</span>
                 </div>
-              )}
-            </div>
-          );
-        })}
+                <button
+                  className={[
+                    'key-vel-btn',
+                    interval < 0 ? 'neg' : interval > 0 ? 'pos' : 'zero',
+                    velocityPopup === key ? 'editing' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setVelocityPopup(prev => prev === key ? null : key);
+                  }}
+                >
+                  VEL {vel}
+                </button>
+
+                {velocityPopup === key && (
+                  <div
+                    className={`vel-popup ${interval < 0 ? 'neg' : interval > 0 ? 'pos' : 'zero'}`}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="vel-popup-header">
+                      <span className="vel-popup-title">Key {key} Velocity</span>
+                      <button className="vel-popup-close" onClick={() => setVelocityPopup(null)}>✕</button>
+                    </div>
+                    <p className="vel-popup-desc">
+                      Controls how hard the <strong>{key}</strong> key strikes.
+                      Only affects this key — other keys keep their own velocity.
+                    </p>
+                    <div className="vel-popup-slider-row">
+                      <span className="vel-popup-min">1</span>
+                      <input
+                        type="range"
+                        className="vel-popup-slider"
+                        min="1" max="127" step="1"
+                        value={vel}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setKeyVelocities(prev => ({ ...prev, [key]: Number(e.target.value) }));
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      />
+                      <span className="vel-popup-max">127</span>
+                    </div>
+                    <div className="vel-popup-value-row">
+                      <input
+                        type="number"
+                        className="vel-popup-num"
+                        min="1" max="127"
+                        value={vel}
+                        onChange={(e) => {
+                          const v = Math.max(1, Math.min(127, Number(e.target.value) || 1));
+                          setKeyVelocities(prev => ({ ...prev, [key]: v }));
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <span className="vel-popup-of">/ 127</span>
+                      <button
+                        className="vel-popup-reset"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setKeyVelocities(prev => ({ ...prev, [key]: 100 }));
+                        }}
+                      >Reset</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Velocity Multiplier */}

@@ -595,6 +595,61 @@ body {
   border: 1px solid var(--border);
 }
 
+.touch-buttons-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.touch-key-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  position: relative;
+}
+
+.touch-key-col.editing {
+  z-index: 100;
+}
+
+.key-vel-btn {
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  font-size: 0.46rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: var(--transition);
+  text-transform: uppercase;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.key-vel-btn.neg:hover,
+.key-vel-btn.neg.editing {
+  border-color: var(--neg);
+  color: var(--neg);
+  background: var(--neg-dim);
+}
+
+.key-vel-btn.pos:hover,
+.key-vel-btn.pos.editing {
+  border-color: var(--pos);
+  color: var(--pos);
+  background: var(--pos-dim);
+}
+
+.key-vel-btn.zero:hover,
+.key-vel-btn.zero.editing {
+  border-color: var(--zero);
+  color: var(--zero);
+  background: var(--zero-dim);
+}
+
 .key-btn {
   display: flex;
   flex-direction: column;
@@ -608,6 +663,9 @@ body {
   cursor: pointer;
   transition: all var(--transition);
   position: relative;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .key-btn.space {
@@ -671,21 +729,6 @@ body {
   font-weight: 600;
   line-height: 1;
   margin-top: 0.1rem;
-}
-
-/* Per-key velocity badge */
-.key-vel-badge {
-  font-size: 0.5rem;
-  font-weight: 700;
-  color: var(--text-dim);
-  margin-top: 0.2rem;
-  line-height: 1;
-  letter-spacing: 0.3px;
-  cursor: pointer;
-}
-
-.key-btn.editing {
-  z-index: 100;
 }
 
 /* Velocity popup */
@@ -1444,6 +1487,15 @@ input[type="range"]::-webkit-slider-runnable-track {
 
   .key-btn.space {
     min-width: 56px;
+  }
+
+  .key-vel-btn {
+    font-size: 0.42rem;
+    padding: 0.12rem 0.2rem;
+  }
+
+  .vel-popup {
+    width: min(280px, 90vw);
   }
 
   .key-cap {
