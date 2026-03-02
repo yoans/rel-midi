@@ -129,7 +129,7 @@ function snapToScale(note, rootKey, scale) {
   return best;
 }
 
-const DEFAULT_SCALE_INDEX = Math.max(0, flatScales.findIndex(s => s.label.toLowerCase() === 'chromatic'));
+const DEFAULT_SCALE_INDEX = Math.max(0, flatScales.findIndex(s => s.label.toLowerCase() === 'major'));
 
 const pickPreferredOutput = (outputs) => {
   if (!outputs.length) return null;
@@ -673,46 +673,7 @@ function MidiController() {
         </div>
       </header>
 
-      {/* Scale & Key */}
-      <div className="scale-key-panel">
-        <div className="scale-key-row">
-          <span className="scale-key-label">Key</span>
-          <button className="sk-arrow sk-arrow-neg" onClick={() => changeScaleKey((scaleKey + 11) % 12)} title="Key down  [  hotkey">◂</button>
-          <select
-            className="sk-select"
-            value={scaleKey}
-            onChange={(e) => changeScaleKey(Number(e.target.value))}
-          >
-            {NOTE_NAMES.map((name, i) => (
-              <option key={i} value={i}>{name}</option>
-            ))}
-          </select>
-          <button className="sk-arrow sk-arrow-pos" onClick={() => changeScaleKey((scaleKey + 1) % 12)} title="Key up  ]  hotkey">▸</button>
-        </div>
-        <div className="scale-key-row">
-          <span className="scale-key-label">Scale</span>
-          <button className="sk-arrow sk-arrow-neg" onClick={() => changeScaleIndex((scaleIndex - 1 + flatScales.length) % flatScales.length)} title="Scale prev  {  hotkey">◂</button>
-          <select
-            className="sk-select sk-select-wide"
-            value={scaleIndex}
-            onChange={(e) => changeScaleIndex(Number(e.target.value))}
-          >
-            {scaleGroups.map(group => (
-              <optgroup key={group.group} label={group.group}>
-                {Object.keys(group.scales).map((name) => {
-                  const label = name.charAt(0).toUpperCase() + name.slice(1);
-                  const idx = flatScales.findIndex(s => s.label === label);
-                  return <option key={name} value={idx}>{label}</option>;
-                })}
-              </optgroup>
-            ))}
-          </select>
-          <button className="sk-arrow sk-arrow-pos" onClick={() => changeScaleIndex((scaleIndex + 1) % flatScales.length)} title="Scale next  }  hotkey">▸</button>
-        </div>
-        <p className="sk-hotkey-hint">[ / ] cycle key · {'{ / }'} cycle scale</p>
-      </div>
-
-      {/* MIDI Config Panel */}
+      {/* MIDI Config Panel */
       <div className="collapsible-section">
         <button
           className="collapsible-header midi-config-toggle"
@@ -1097,6 +1058,45 @@ function MidiController() {
           />
         );
       })()}
+
+      {/* Scale & Key */}
+      <div className="scale-key-panel">
+        <div className="scale-key-row">
+          <span className="scale-key-label">Key</span>
+          <button className="sk-arrow sk-arrow-neg" onClick={() => changeScaleKey((scaleKey + 11) % 12)} title="Key down  [  hotkey">◂</button>
+          <select
+            className="sk-select"
+            value={scaleKey}
+            onChange={(e) => changeScaleKey(Number(e.target.value))}
+          >
+            {NOTE_NAMES.map((name, i) => (
+              <option key={i} value={i}>{name}</option>
+            ))}
+          </select>
+          <button className="sk-arrow sk-arrow-pos" onClick={() => changeScaleKey((scaleKey + 1) % 12)} title="Key up  ]  hotkey">▸</button>
+        </div>
+        <div className="scale-key-row">
+          <span className="scale-key-label">Scale</span>
+          <button className="sk-arrow sk-arrow-neg" onClick={() => changeScaleIndex((scaleIndex - 1 + flatScales.length) % flatScales.length)} title="Scale prev  {  hotkey">◂</button>
+          <select
+            className="sk-select sk-select-wide"
+            value={scaleIndex}
+            onChange={(e) => changeScaleIndex(Number(e.target.value))}
+          >
+            {scaleGroups.map(group => (
+              <optgroup key={group.group} label={group.group}>
+                {Object.keys(group.scales).map((name) => {
+                  const label = name.charAt(0).toUpperCase() + name.slice(1);
+                  const idx = flatScales.findIndex(s => s.label === label);
+                  return <option key={name} value={idx}>{label}</option>;
+                })}
+              </optgroup>
+            ))}
+          </select>
+          <button className="sk-arrow sk-arrow-pos" onClick={() => changeScaleIndex((scaleIndex + 1) % flatScales.length)} title="Scale next  }  hotkey">▸</button>
+        </div>
+        <p className="sk-hotkey-hint">[ / ] cycle key · {'{ / }'} cycle scale</p>
+      </div>
 
       {/* Collapsible Controls */}
       <div className="collapsible-section">
