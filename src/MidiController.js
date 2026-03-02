@@ -673,7 +673,7 @@ function MidiController() {
         </div>
       </header>
 
-      {/* MIDI Config Panel */
+      {/* MIDI Config Panel */}
       <div className="collapsible-section">
         <button
           className="collapsible-header midi-config-toggle"
